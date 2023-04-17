@@ -1,0 +1,17 @@
+#ifndef INTERRUPT_CALLBACK_H_
+#define INTERRUPT_CALLBACK_H_
+
+#include "main.h"
+
+#include "application_tasks.h"
+
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#include "semphr.h"
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart);
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart);
+
+#endif

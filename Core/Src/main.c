@@ -52,7 +52,12 @@ DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart1_tx;
 
 uint8_t rx_buffer[10];
-uint8_t tx_buffer[10];
+uint8_t tx_buffer[10] = {'Z','Z','Z','Z','Z','Z','Z','Z','Z','Z'};
+
+volatile uint16_t Global_u16SlitCount = 0;
+xSemaphoreHandle send_message_semaphore;
+xSemaphoreHandle receive_message_semaphore;
+TaskHandle_t send_message_task_handle;
 
 /* USER CODE BEGIN PV */
 
@@ -118,6 +123,7 @@ int main(void) {
 	/* USER CODE BEGIN RTOS_SEMAPHORES */
 	/* add semaphores, ... */
 	send_message_semaphore = xSemaphoreCreateBinary();
+	receive_message_semaphore = xSemaphoreCreateBinary();
 	/* USER CODE END RTOS_SEMAPHORES */
 
 	/* USER CODE BEGIN RTOS_TIMERS */
@@ -133,6 +139,7 @@ int main(void) {
 	/* USER CODE BEGIN RTOS_THREADS */
 	xTaskCreate(&Task_speedCalculation, "Speed_Calculation", 240, NULL, 3, NULL);
 	xTaskCreate(&Task_sendMessage, "Message_Sending", 240, NULL, 4, &send_message_task_handle);
+	xTaskCreate(&Task_handleReceivedMessage, "Message_Handling", 240, NULL, 5, NULL);
 	/* USER CODE END RTOS_THREADS */
 
 	/* Start scheduler */

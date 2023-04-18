@@ -41,8 +41,6 @@ extern UART_HandleTypeDef huart6;
 extern DMA_HandleTypeDef hdma_usart1_rx;
 extern DMA_HandleTypeDef hdma_usart1_tx;
 
-extern uint8_t rx_buffer[10];
-extern uint8_t tx_buffer[10];
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/

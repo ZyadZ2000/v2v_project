@@ -1,16 +1,33 @@
 #include "application_tasks.h"
+#include "helper_functions.h"
 
-volatile uint16_t Global_u16SlitCount = 0;
-xSemaphoreHandle send_message_semaphore;
-TaskHandle_t send_message_task_handle;
+extern volatile uint16_t Global_u16SlitCount;
+extern xSemaphoreHandle send_message_semaphore;
+extern xSemaphoreHandle receive_message_semaphore;
+extern TaskHandle_t send_message_task_handle;
+extern uint8_t tx_buffer[10];
+extern uint8_t rx_buffer[10];
 
 void Task_sendMessage(void *parameters) {
+	xSemaphoreTake(send_message_semaphore, 0);
 	vTaskSuspend(NULL);
-	while(1){
-		xSemaphoreTake(send_message_semaphore, portMAX_DELAY);
+	while (1) {
 		HAL_UART_Transmit_DMA(&huart1, tx_buffer, 10);
 		__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
 		vTaskSuspend(NULL);
+		xSemaphoreTake(send_message_semaphore, portMAX_DELAY);
+	}
+}
+
+void Task_handleReceivedMessage(void *parameters) {
+	//Receive the message
+	xSemaphoreTake(receive_message_semaphore, 0);
+	while (1) {
+		xSemaphoreTake(receive_message_semaphore, portMAX_DELAY);
+		//Calculate if there is any danger
+		//Display on LCD
+		HAL_UART_Receive_DMA(&huart1, rx_buffer, 10);
+		__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
 	}
 }
 

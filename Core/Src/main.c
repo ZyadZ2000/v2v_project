@@ -28,6 +28,10 @@
 
 #include "application_tasks.h"
 #include "interrupts_callback.h"
+
+#include "NMEA.h"
+#include "uartRingBuffer.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -51,16 +55,29 @@ UART_HandleTypeDef huart6;
 DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart1_tx;
 
-uint8_t rx_buffer[10];
-uint8_t tx_buffer[10] = {'Z','Z','Z','Z','Z','Z','Z','Z','Z','Z'};
+/* USER CODE BEGIN PV */
+uint8_t rx_buffer[32] = { 0 };
+uint8_t tx_buffer[32] = { 0 };
 
 volatile uint16_t Global_u16SlitCount = 0;
 xSemaphoreHandle send_message_semaphore;
 xSemaphoreHandle receive_message_semaphore;
 TaskHandle_t send_message_task_handle;
 
-/* USER CODE BEGIN PV */
+char second_car_latitude[11] = { 0 };
+char second_car_longitude[11] = { 0 };
+char second_car_direction[8] = { 0 };
 
+double my_car_latitude = 0.0;
+double my_car_longitude = 0.0;
+
+char north_south = 'N';
+char east_west = 'E';
+
+double car_direction = 0.0;
+
+GPSSTRUCT GGAST;
+extern ring_buffer *_rx_buffer;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -69,6 +86,7 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USART6_UART_Init(void);
+static void GPS_init(void);
 
 /* USER CODE BEGIN PFP */
 /* USER CODE END PFP */
@@ -108,10 +126,9 @@ int main(void) {
 	MX_DMA_Init();
 	MX_USART1_UART_Init();
 	MX_USART6_UART_Init();
-
 	/* USER CODE BEGIN 2 */
 
-	HAL_UART_Receive_DMA(&huart1, rx_buffer, 10);
+	HAL_UART_Receive_DMA(&huart1, rx_buffer, 32);
 	__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
 
 	/* USER CODE END 2 */
@@ -134,19 +151,31 @@ int main(void) {
 	/* add queues, ... */
 	/* USER CODE END RTOS_QUEUES */
 
-	/* Create the thread(s) */
-
 	/* USER CODE BEGIN RTOS_THREADS */
-	xTaskCreate(&Task_speedCalculation, "Speed_Calculation", 240, NULL, 3, NULL);
-	xTaskCreate(&Task_sendMessage, "Message_Sending", 240, NULL, 4, &send_message_task_handle);
-	xTaskCreate(&Task_handleReceivedMessage, "Message_Handling", 240, NULL, 5, NULL);
+	xTaskCreate(&Task_speedCalculation, "Speed_Calculation", 240, NULL, 2,
+	NULL);
+	xTaskCreate(&Task_sendMessage, "Message_Sending", 240, NULL, 6,
+			&send_message_task_handle);
+	xTaskCreate(&Task_handleReceivedMessage, "Message_Handling", 240, NULL, 5,
+	NULL);
+
+	xTaskCreate(&Task_readingGPS, "GPS_Reading", 240, NULL, 3,
+	NULL);
+
+	xTaskCreate(&Task_directionOfCar, "Car_direction", 240, NULL, 4,
+	NULL);
 	/* USER CODE END RTOS_THREADS */
 
+	Ringbuf_init();
+
+	/* Initialize GPS */
+	GPS_init();
+
 	/* Start scheduler */
-	if(send_message_semaphore != NULL)
-	{
+	if (send_message_semaphore != NULL) {
 		vTaskStartScheduler();
 	}
+
 	/* We should never get here as control is now taken by the scheduler */
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
@@ -254,7 +283,7 @@ static void MX_USART6_UART_Init(void) {
 
 	/* USER CODE END USART6_Init 1 */
 	huart6.Instance = USART6;
-	huart6.Init.BaudRate = 115200;
+	huart6.Init.BaudRate = 9600;
 	huart6.Init.WordLength = UART_WORDLENGTH_8B;
 	huart6.Init.StopBits = UART_STOPBITS_1;
 	huart6.Init.Parity = UART_PARITY_NONE;
@@ -308,9 +337,87 @@ static void MX_GPIO_Init(void) {
 
 	/* EXTI interrupt init*/
 	HAL_NVIC_SetPriority(EXTI0_IRQn, 5, 0);
-	// HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+	HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
 }
+
+/* USER CODE BEGIN 4 */
+void GPS_init(void) {
+	int flagGGA = 1;
+	char c1;
+	char GGA[100];
+	char count = 0;
+	double latitude_sum = 0.0;
+	double longitude_sum = 0.0;
+	char GGA_loop_index;
+	//char uartBuflong[100] ={0};
+	//char uartBuflat[100] ={0};
+	do {
+
+
+		for (GGA_loop_index = 0; GGA_loop_index < 100; GGA_loop_index++) {
+			GGA[GGA_loop_index] = 0;
+		}
+		// extracting the message ($gga)
+		//HAL_UART_Transmit(&huart3,(uint8_t *)"extracting the message", 23, 100);
+
+		//MCAL_UART_u8ReceiveData(UART_3, (uint8_t *)&c);
+		HAL_UART_Receive(&huart6, (uint8_t*) &c1, sizeof(c1), 1000);
+		// start with the dollar sign if not then loop to find it
+		for (int k = 0; c1 != '$'; k++) {
+			// MCAL_UART_u8ReceiveData(UART_3, (uint8_t *)&c);
+			HAL_UART_Receive(&huart6, (uint8_t*) &c1, sizeof(c1), 1000);
+		}
+
+		store_char(c1, _rx_buffer);
+		//MCAL_UART_u8ReceiveData(UART_3,(uint8_t *) &c);
+		HAL_UART_Receive(&huart6, (uint8_t*) &c1, sizeof(c1), 1000);
+		// loop to store all the frame after dollar until next dollar recieved
+		while (c1 != '$') {
+			store_char(c1, _rx_buffer);
+			//MCAL_UART_u8ReceiveData(UART_3,(uint8_t *) &c);
+			HAL_UART_Receive(&huart6, (uint8_t*) &c1, sizeof(c1), 1000);
+		}
+
+		// once the new dollar received the old frame is now in the buffer to be decoded
+		// end of extracting
+
+		// HAL_UART_Transmit(&huart3,(uint8_t *)"\r\n", 2, 100);
+		// HAL_UART_Transmit(&huart3,(uint8_t *) "Before enter do while ", 23, 100);
+		//  HAL_UART_Transmit(&huart3,(uint8_t *)"\r\n", 2, 100);
+		//HAL_UART_Transmit(&huart3,(uint8_t *)"\r\n", 2, 100);
+		//HAL_UART_Transmit(&huart3,(uint8_t *) "inside do while ", 17, 100);
+		flagGGA = 1;
+
+		if (Wait_for("GGA") == 1) {
+			// HAL_UART_Transmit(&huart3,(uint8_t *) "found gga ", 11, 100);
+			//HAL_UART_Transmit(&huart3,(uint8_t *)"\r\n", 2, 100);
+			//HAL_UART_Transmit(&huart3,(uint8_t *) "outside wait ", 13, 100);
+			Copy_upto("*", GGA);
+			if (decodeGGA(GGA, &GGAST.ggastruct) == 0) {
+
+				latitude_sum += GGAST.ggastruct.lcation.latitude;
+				longitude_sum += GGAST.ggastruct.lcation.longitude;
+			    count++;
+				if (count == 2) {
+					flagGGA = 0;
+				}
+
+			}
+		}
+
+	} while (flagGGA == 1);
+
+	// in using freertos
+	// here is the delay ------
+
+	my_car_latitude = latitude_sum / 4;//* 100;
+	my_car_longitude = longitude_sum / 4; //* 100;
+	north_south = GGAST.ggastruct.lcation.NS;
+	east_west = GGAST.ggastruct.lcation.EW;
+// here we will write on lcd "now gps is working and system is activated "
+}
+/* USER CODE END 4 */
 
 /**
  * @brief  This function is executed in case of error occurrence.

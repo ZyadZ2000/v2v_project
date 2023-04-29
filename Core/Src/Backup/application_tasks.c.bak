@@ -8,21 +8,16 @@ extern volatile uint16_t Global_u16SlitCount;
 extern xSemaphoreHandle send_message_semaphore;
 extern xSemaphoreHandle receive_message_semaphore;
 extern TaskHandle_t send_message_task_handle;
-extern uint8_t tx_buffer[32];
-extern uint8_t rx_buffer[32];
+extern uint8_t tx_buffer[25];
+extern uint8_t rx_buffer[25];
 
 extern GPSSTRUCT GGAST;
 extern ring_buffer *_rx_buffer;
 
 extern char second_car_latitude[11];
 extern char second_car_longitude[11];
-extern char second_car_direction[8];
-
 extern double my_car_latitude;
 extern double my_car_longitude;
-extern char north_south;
-extern char east_west;
-extern double car_direction;
 
 void Task_sendMessage(void *parameters) {
 	xSemaphoreTake(send_message_semaphore, 0);
@@ -30,11 +25,12 @@ void Task_sendMessage(void *parameters) {
 	while (1) {
 		//Construct the message
 		taskENTER_CRITICAL();
-		Build_Msg((char*) tx_buffer, my_car_latitude, my_car_longitude,
-				north_south, east_west, car_direction);
+		Build_Msg((char *) tx_buffer, my_car_latitude,
+				my_car_longitude, GGAST.ggastruct.lcation.NS,
+				GGAST.ggastruct.lcation.EW);
 		taskEXIT_CRITICAL();
 
-		HAL_UART_Transmit_DMA(&huart1, tx_buffer, 32);
+		HAL_UART_Transmit_DMA(&huart1, tx_buffer, 25);
 		__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
 		vTaskSuspend(NULL);
 		xSemaphoreTake(send_message_semaphore, portMAX_DELAY);
@@ -44,61 +40,41 @@ void Task_sendMessage(void *parameters) {
 void Task_handleReceivedMessage(void *parameters) {
 	//Receive the message
 	unsigned int i, j;
-	double message_latitude, message_longitude, message_direction;
-	double distance_calculation, bearing_difference;
+	double message_latitude, message_longitude;
+	double bearing_calculation, distance_calculation;
 	xSemaphoreTake(receive_message_semaphore, 0);
 	while (1) {
 		xSemaphoreTake(receive_message_semaphore, portMAX_DELAY);
 		//rx_buffer contains message
 		//Extract up to N for latitude, up to E for longitude
 		i = 1, j = 0;
-		while (i < 30 && rx_buffer[i] != 'N' && rx_buffer[i] != 'S' && j < 11) {
+		while (i < 25 && rx_buffer[i] != 'N' && rx_buffer[i] != 'S' && j < 11) {
 			second_car_latitude[j] = rx_buffer[i];
 			i++;
 			j++;
 		}
 		second_car_latitude[j] = '\0';
-		i++;         //no need for NS
+		i++;
 		j = 0;
-
-		while (i < 30 && rx_buffer[i] != 'E' && rx_buffer[i] != 'W' && j < 11) {
+		while (i < 25 && rx_buffer[i] != 'E' && rx_buffer[i] != 'W' && j < 11) {
 			second_car_longitude[j] = rx_buffer[i];
 			i++;
 			j++;
 		}
 		second_car_longitude[j] = '\0';
-		i++;          //no need for EW
-		j = 0;
-
-		while (i < 30 && rx_buffer[i] != '#' && j < 8) {
-			second_car_direction[j] = rx_buffer[i];
-			i++;
-			j++;
-		}
-		second_car_direction[j] = '\0';
 
 		message_latitude = atof(second_car_latitude);
 		message_longitude = atof(second_car_longitude);
-		message_direction = atof(second_car_direction);
 
-		//bearing_difference
-		bearing_difference = fabs(message_direction - car_direction);
+		bearing_calculation = bearing(my_car_latitude, my_car_longitude,
+				message_latitude, message_longitude);
+		distance_calculation = haversine(my_car_latitude, Global_u16SlitCount,
+				message_latitude, message_longitude);
 
-		if (bearing_difference < 45 || bearing_difference > 135) {
-			//moving in same direction
-			if (bearing_difference > 170 || bearing_difference < 10) {
-				//same line
-				distance_calculation = distance(my_car_latitude,
-						my_car_longitude, message_latitude, message_longitude);
-				//based on the distance_calculation decide on displaying the warning
-				if (distance_calculation < 20) {
-					//Display warning
-
-				}
-			}
+		if (bearing_calculation >= 150 && bearing_calculation <= 180) {
+			//based on the distance decide on displaying the warning
 		}
-
-		HAL_UART_Receive_DMA(&huart1, rx_buffer, 32);
+		HAL_UART_Receive_DMA(&huart1, rx_buffer, 25);
 		__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
 	}
 }
@@ -122,40 +98,24 @@ void Task_speedCalculation(void *parameters) {
 
 		if (Local_u16DifferSpeed <= SS_VELOCITY_THRESHOLD) {
 			//Transmit UART Message using DMA
-			taskENTER_CRITICAL();
 			vTaskResume(send_message_task_handle);
-			taskEXIT_CRITICAL();
 		}
 		Global_u16PreviousSpeed = Local_u16CurrentSpeed;
 		Global_u16SlitCount = 0;
 
-		taskENTER_CRITICAL();
 		HAL_NVIC_EnableIRQ(EXTI0_IRQn);
-		taskEXIT_CRITICAL();
 		vTaskDelay(500 / portTICK_RATE_MS);
 	}
 }
 
 void Task_readingGPS(void *parameters) {
-	int flagGGA = 1;
-	char c1;
-	char GGA[100];
-	char count = 0;
-	double latitude_sum = 0.0;
-	double longitude_sum = 0.0;
-	char GGA_loop_index = 0;
 	while (1) {
-		flagGGA = 1;
-		count = 0;
-		latitude_sum = 0.0;
-		longitude_sum = 0.0;
-
+		int flagGGA = 1;
+		char c1;
+		char GGA[100];
 		//char uartBuflong[100] ={0};
 		//char uartBuflat[100] ={0};
 		do {
-			for (GGA_loop_index = 0; GGA_loop_index < 100; GGA_loop_index++) {
-				GGA[GGA_loop_index] = 0;
-			}
 			// extracting the message ($gga)
 			//HAL_UART_Transmit(&huart6,(uint8_t *)"extracting the message", 23, 100);
 
@@ -193,13 +153,11 @@ void Task_readingGPS(void *parameters) {
 				//HAL_UART_Transmit(&huart6,(uint8_t *) "outside wait ", 13, 100);
 				Copy_upto("*", GGA);
 				if (decodeGGA(GGA, &GGAST.ggastruct) == 0) {
-					latitude_sum += GGAST.ggastruct.lcation.latitude;
-					longitude_sum += GGAST.ggastruct.lcation.longitude;
-					count++;
-					if (count == 2) {
-						flagGGA = 0;
-						//count = 0;
-					}
+					flagGGA = 0;
+
+					// HAL_UART_Transmit(&huart6,(uint8_t *) "data is valid ", 14, 100);
+					// HAL_UART_Transmit(&huart6,(uint8_t *)"\r\n", 2, 100);
+					// 2 indicates the data is valid
 				}
 			}
 
@@ -208,13 +166,11 @@ void Task_readingGPS(void *parameters) {
 		// in using freertos
 		// here is the delay ------
 		taskENTER_CRITICAL();
-		my_car_latitude = latitude_sum / 4;		//* 100;
-		my_car_longitude = longitude_sum / 4; //* 100;
-		north_south = GGAST.ggastruct.lcation.NS;
-		east_west = GGAST.ggastruct.lcation.EW;
+		my_car_latitude = GGAST.ggastruct.lcation.latitude * 100;
+		my_car_longitude = GGAST.ggastruct.lcation.longitude * 100;
 		taskEXIT_CRITICAL();
 
-		vTaskDelay(100 / portTICK_RATE_MS);
+		vTaskDelay(300);
 
 		// here for just showing data using uart3
 		// HAL_UART_Transmit(&huart6,(uint8_t *)"\r\n", 2, 100);
@@ -235,29 +191,4 @@ void Task_readingGPS(void *parameters) {
 		/* USER CODE BEGIN 3 */
 
 	}
-}
-
-void Task_directionOfCar(void *parameters) {
-	static volatile double car_lat1;
-	static volatile double car_lon1;
-	static volatile double car_lat2;
-	static volatile double car_lon2;
-	while (1) {
-		//taskENTER_CRITICAL();
-		car_lat1 = my_car_latitude;
-		car_lon1 = my_car_longitude;
-		//taskEXIT_CRITICAL();
-
-		vTaskDelay(3000 / portTICK_RATE_MS);
-
-		//taskENTER_CRITICAL();
-		car_lat2 = my_car_latitude;
-		car_lon2 = my_car_longitude;
-		//taskEXIT_CRITICAL();
-
-		taskENTER_CRITICAL();
-		car_direction = bearing(car_lat1, car_lon1, car_lat2, car_lon2);
-		taskEXIT_CRITICAL();
-	}
-
 }

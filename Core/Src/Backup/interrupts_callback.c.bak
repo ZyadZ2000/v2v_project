@@ -3,8 +3,8 @@
 extern volatile uint16_t Global_u16SlitCount;
 extern xSemaphoreHandle send_message_semaphore;
 extern xSemaphoreHandle receive_message_semaphore;
-extern uint8_t rx_buffer[32];
-extern uint8_t tx_buffer[32];
+extern uint8_t rx_buffer[25];
+extern uint8_t tx_buffer[10];
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	if (huart->Instance == USART1) {

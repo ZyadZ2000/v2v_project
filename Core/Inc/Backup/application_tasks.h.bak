@@ -13,5 +13,7 @@ void Task_speedCalculation(void *parameters);
 void Task_sendMessage(void *parameters);
 void Task_handleReceivedMessage(void * parameters);
 void Task_readingGPS(void *parameters);
+void Task_directionOfCar(void * parameters);
+void Task_controlCar(void *parameters);
 
 #endif

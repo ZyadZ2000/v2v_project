@@ -36,10 +36,20 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
+extern TIM_HandleTypeDef htim3;
+extern TIM_HandleTypeDef htim4;
+extern TIM_HandleTypeDef htim12;
 extern UART_HandleTypeDef huart1;
+extern UART_HandleTypeDef huart5;
 extern UART_HandleTypeDef huart6;
+extern UART_HandleTypeDef huart4;
 extern DMA_HandleTypeDef hdma_usart1_rx;
 extern DMA_HandleTypeDef hdma_usart1_tx;
+
+/* Touch-Screen Definitions */
+typedef enum {
+	headerState = 0, dataState, screenResponseState
+} receiving_state;
 
 /* USER CODE END ET */
 
@@ -52,6 +62,8 @@ extern DMA_HandleTypeDef hdma_usart1_tx;
 /* USER CODE BEGIN EM */
 
 /* USER CODE END EM */
+
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);

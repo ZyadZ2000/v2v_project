@@ -14,5 +14,7 @@ void Task_sendMessage(void *parameters);
 void Task_handleReceivedMessage(void * parameters);
 void Task_readingGPS(void *parameters);
 void Task_directionOfCar(void * parameters);
+void Task_controlCar(void *parameters);
+void Task_touchScreen(void *parameters);
 
 #endif

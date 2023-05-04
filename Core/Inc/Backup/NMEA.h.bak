@@ -56,7 +56,7 @@ int decodeGGA (char *GGAbuffer, GGASTRUCT *gga);
 int decodeRMC (char *RMCbuffer, RMCSTRUCT *rmc);
 #endif
 double StrDeg_To_FloatDec(char Deg_cord []);
-void Build_Msg (char * msg , double lat , double longt,char NS,char EW);
+void Build_Msg (char * msg , double lat , double longt,char NS,char EW, double direction);
 double Deg_To_Rad(double deg) ;
 double Distance_Calc(char Lati1_Str [], char Long1_Str [], char Lati2_Str [], char Long2_Str []);
 #endif /* INC_NMEA_H_ */

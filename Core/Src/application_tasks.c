@@ -3,11 +3,17 @@
 #include "NMEA.h"
 #include "uartRingBuffer.h"
 #include <stdlib.h>
+#include <math.h>
+#include "CLCD_interface.h"
+#include "CAR_CTRL_interface.h"
 
 extern volatile uint16_t Global_u16SlitCount;
+
 extern xSemaphoreHandle send_message_semaphore;
 extern xSemaphoreHandle receive_message_semaphore;
+extern xSemaphoreHandle touchScreen_semaphore;
 extern TaskHandle_t send_message_task_handle;
+
 extern uint8_t tx_buffer[32];
 extern uint8_t rx_buffer[32];
 
@@ -23,6 +29,20 @@ extern double my_car_longitude;
 extern char north_south;
 extern char east_west;
 extern double car_direction;
+
+extern uint8_t Upper_Left[8];
+extern uint8_t Upper_Right[8];
+extern uint8_t Lower_Left[8];
+extern uint8_t Lower_Right[8];
+extern uint8_t Lower_Mid[8];
+extern uint8_t Upper_Mid[8];
+
+extern uint8_t screen_character_recieved;
+extern uint8_t screen_index;
+extern receiving_state current_screen_frame;
+extern uint8_t HeaderFrame[7];
+extern uint8_t DataFrame[20];
+extern uint8_t arrested_car[20];
 
 void Task_sendMessage(void *parameters) {
 	xSemaphoreTake(send_message_semaphore, 0);
@@ -47,6 +67,8 @@ void Task_handleReceivedMessage(void *parameters) {
 	double message_latitude, message_longitude, message_direction;
 	double distance_calculation, bearing_difference;
 	xSemaphoreTake(receive_message_semaphore, 0);
+	HAL_UART_Receive_DMA(&huart1, rx_buffer, 32);
+	__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
 	while (1) {
 		xSemaphoreTake(receive_message_semaphore, portMAX_DELAY);
 		//rx_buffer contains message
@@ -93,6 +115,23 @@ void Task_handleReceivedMessage(void *parameters) {
 				//based on the distance_calculation decide on displaying the warning
 				if (distance_calculation < 20) {
 					//Display warning
+					CLCD_voidDisplayClear();
+
+					CLCD_voidWriteSpeacialChar(Upper_Left, 0, 0, 13);
+					CLCD_voidWriteSpeacialChar(Upper_Mid, 1, 0, 14);
+					CLCD_voidWriteSpeacialChar(Upper_Right, 2, 0, 15);
+
+					CLCD_voidWriteSpeacialChar(Lower_Left, 3, 1, 13);
+					CLCD_voidWriteSpeacialChar(Lower_Mid, 4, 1, 14);
+					CLCD_voidWriteSpeacialChar(Lower_Right, 5, 1, 15);
+
+					CLCD_voidGoToXY(0, 0);
+
+					CLCD_voidSendString("Warning: Car");
+
+					CLCD_voidGoToXY(1, 2);
+
+					CLCD_voidSendString("In Front");
 
 				}
 			}
@@ -140,21 +179,22 @@ void Task_readingGPS(void *parameters) {
 	int flagGGA = 1;
 	char c1;
 	char GGA[100];
-	char count = 0;
-	double latitude_sum = 0.0;
-	double longitude_sum = 0.0;
+	//char count = 0;
+	//double latitude_sum = 0.0;
+	//double longitude_sum = 0.0;
+
 	char GGA_loop_index = 0;
 	while (1) {
 		flagGGA = 1;
-		count = 0;
-		latitude_sum = 0.0;
-		longitude_sum = 0.0;
+		//count = 0;
+		//latitude_sum = 0.0;
+		//longitude_sum = 0.0;
 
 		//char uartBuflong[100] ={0};
 		//char uartBuflat[100] ={0};
 		do {
 			for (GGA_loop_index = 0; GGA_loop_index < 100; GGA_loop_index++) {
-				GGA[GGA_loop_index] = 0;
+				GGA[(int) GGA_loop_index] = 0;
 			}
 			// extracting the message ($gga)
 			//HAL_UART_Transmit(&huart6,(uint8_t *)"extracting the message", 23, 100);
@@ -193,13 +233,13 @@ void Task_readingGPS(void *parameters) {
 				//HAL_UART_Transmit(&huart6,(uint8_t *) "outside wait ", 13, 100);
 				Copy_upto("*", GGA);
 				if (decodeGGA(GGA, &GGAST.ggastruct) == 0) {
-					latitude_sum += GGAST.ggastruct.lcation.latitude;
-					longitude_sum += GGAST.ggastruct.lcation.longitude;
-					count++;
-					if (count == 2) {
-						flagGGA = 0;
-						//count = 0;
-					}
+					//latitude_sum += GGAST.ggastruct.lcation.latitude;
+					//longitude_sum += GGAST.ggastruct.lcation.longitude;
+					//count++;
+					//if (count == 1) {
+					flagGGA = 0;
+					//count = 0;
+					//}
 				}
 			}
 
@@ -208,8 +248,8 @@ void Task_readingGPS(void *parameters) {
 		// in using freertos
 		// here is the delay ------
 		taskENTER_CRITICAL();
-		my_car_latitude = latitude_sum / 4;		//* 100;
-		my_car_longitude = longitude_sum / 4; //* 100;
+		my_car_latitude = GGAST.ggastruct.lcation.latitude;	//latitude_sum ;/// 2;//* 100;
+		my_car_longitude = GGAST.ggastruct.lcation.longitude;//longitude_sum;// / 2; //* 100;
 		north_south = GGAST.ggastruct.lcation.NS;
 		east_west = GGAST.ggastruct.lcation.EW;
 		taskEXIT_CRITICAL();
@@ -248,7 +288,7 @@ void Task_directionOfCar(void *parameters) {
 		car_lon1 = my_car_longitude;
 		//taskEXIT_CRITICAL();
 
-		vTaskDelay(3000 / portTICK_RATE_MS);
+		vTaskDelay(5000 / portTICK_RATE_MS);
 
 		//taskENTER_CRITICAL();
 		car_lat2 = my_car_latitude;
@@ -258,6 +298,143 @@ void Task_directionOfCar(void *parameters) {
 		taskENTER_CRITICAL();
 		car_direction = bearing(car_lat1, car_lon1, car_lat2, car_lon2);
 		taskEXIT_CRITICAL();
+	}
+
+}
+
+void Task_controlCar(void *parameters) {
+	uint8_t Local_u8Received_data = 0;
+	while (1) {
+		/* Initialize buffer Variable To Hold Received Char */
+		Local_u8Received_data = 0;
+		if (HAL_UART_Receive(&huart4, &Local_u8Received_data, 1, 100)
+				== HAL_OK) {
+
+			/* Return To The Normal Speed */
+			TIM3->CCR1 = 75;
+			TIM12->CCR1 = 75;
+
+			/* Direction Change According To The Received Direction */
+			if (Local_u8Received_data == 'f')
+				HAL_CAR_CTRL_voidForward();
+			else if (Local_u8Received_data == 'b')
+				HAL_CAR_CTRL_voidBackward();
+			else if (Local_u8Received_data == 'l')
+				HAL_CAR_CTRL_voidRight();
+			else if (Local_u8Received_data == 'r')
+				HAL_CAR_CTRL_voidLeft();
+			else if (Local_u8Received_data == 's') {
+				HAL_CAR_CTRL_voidStop();
+				CLCD_voidDisplayClear();
+			}
+
+		} else {
+			/* Decrease The Speed Gradually */
+			if ((TIM3->CCR1) >= 10) {
+				TIM3->CCR1 -= 1;
+				TIM12->CCR1 -= 1;
+
+				//pwm.CCR1 -= 10;
+			}
+			/* Stop The RC Car */
+			else {
+				TIM3->CCR1 = 0;
+				TIM12->CCR1 = 0;
+				//pwm.CCR1 = 0;
+			}
+		}
+
+	}
+}
+
+void Task_touchScreen(void *parameters) {
+
+	int i = 0;
+
+	uint8_t switch_to_Send_page[11] = { 0x5A, 0xA5, 0X07, 0X82, 0X00, 0X84,
+			0X5A, 0X01, 0X00, 0X03, '\0' };
+
+	xSemaphoreTake(touchScreen_semaphore, 0);
+	HAL_UART_Receive_IT(&huart5, &screen_character_recieved, 1);
+
+	while (1) {
+		xSemaphoreTake(touchScreen_semaphore, portMAX_DELAY);
+
+		HAL_UART_Receive_IT(&huart5, &screen_character_recieved, 1);
+
+		switch (current_screen_frame) {
+
+		case headerState:
+			if (screen_character_recieved != 0xFF) {
+				HeaderFrame[screen_index] = screen_character_recieved;
+				screen_index++;
+				if (screen_index == 7) {
+					current_screen_frame = dataState;
+					screen_index = 0;
+				}
+			}
+			break;
+		case dataState:
+			if (screen_character_recieved != 0xFF && screen_index < 20) {
+				DataFrame[screen_index] = screen_character_recieved;
+				screen_index++;
+			} else {
+				DataFrame[screen_index] = '\0';
+				screen_index = 0;
+				current_screen_frame = headerState;
+				if (HeaderFrame[4] == 0x55) {
+					/* Dataframe contains username to validate */
+				} else if (HeaderFrame[4] == 0x57) {
+					/* Dataframe contains password to validate */
+				} else if (HeaderFrame[5] == 0x01) {
+				/*	if (usernameFlag && PassFlag) {
+						switch_to_Send_page[9] = 0X03;
+						current_screen_frame = screenResponseState;
+						HAL_UART_Transmit_IT(&huart5, switch_to_Send_page,
+								sizeof(switch_to_Send_page), 100);
+					} else {
+						switch_to_Send_page[9] = 0X04;
+						current_screen_frame = screenResponseState;
+						HAL_UART_Transmit_IT(&huart5, switch_to_Send_page,
+								sizeof(switch_to_Send_page), 100);
+					}*/
+				} else if (HeaderFrame[4] == 0x59) {
+					for (i = 0; DataFrame[i] != '\0'; i++) {
+						arrested_car[i] = DataFrame[i];
+					}
+					arrested_car[i] = '\0';
+
+				}
+				else if (HeaderFrame[5] == 0x05) {
+			/*		long int encrypted_message[100] = { '\0' };
+					long int message_to_send[10] = { '\0' };
+					char public_key_msg[7] = { '\0' };
+					char final_message[10] = { '\0' };
+					generate_primes(&p, &q);
+					n = p * q;
+					t = (p - 1) * (q - 1);
+					// Calculate e and d
+					ce();
+					// Encrypt the message
+					encrypt(arrested_car, d[0], encrypted_message);
+					buid_publickey(e[0], public_key_msg);
+					HAL_UART_Transmit(&huart1, public_key_msg,
+							sizeof(public_key_msg), 100);
+
+					buid_encrypted_message(encrypted_message, message_to_send);
+					translate_from_longint_char(message_to_send, final_message);
+					HAL_UART_Transmit(&huart1, final_message,
+							sizeof(final_message), 100);
+*/
+				}
+			}
+			break;
+		case screenResponseState:
+			if (screen_character_recieved == 0x4B) {
+				current_screen_frame = headerState;
+			}
+			break;
+		}
 	}
 
 }

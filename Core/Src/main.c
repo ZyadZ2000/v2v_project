@@ -200,11 +200,13 @@ int main(void) {
 	/* USER CODE END RTOS_QUEUES */
 
 	/* USER CODE BEGIN RTOS_THREADS */
-	xTaskCreate(&Task_speedCalculation, "Speed_Calculation", 240, NULL, 2,
+	xTaskCreate(&Task_speedCalculation, "Speed_Calculation", 240, NULL, 5,
 	NULL);
-	xTaskCreate(&Task_sendMessage, "Message_Sending", 240, NULL, 6,
+
+	xTaskCreate(&Task_sendMessage, "Message_Sending", 240, NULL, 7,
 			&send_message_task_handle);
-	xTaskCreate(&Task_handleReceivedMessage, "Message_Handling", 240, NULL, 5,
+
+	xTaskCreate(&Task_handleReceivedMessage, "Message_Handling", 240, NULL, 6,
 	NULL);
 
 	xTaskCreate(&Task_readingGPS, "GPS_Reading", 240, NULL, 3,
@@ -213,7 +215,7 @@ int main(void) {
 	xTaskCreate(&Task_directionOfCar, "Car_direction", 240, NULL, 4,
 	NULL);
 
-	xTaskCreate(&Task_controlCar, "Car_Control", 240, NULL, 1,
+	xTaskCreate(&Task_controlCar, "Car_Control", 240, NULL, 2,
 	NULL);
 
 	xTaskCreate(&Task_touchScreen, "Touch_Screen", 240, NULL, 1,
@@ -622,13 +624,13 @@ void GPS_init(void) {
 	CLCD_voidSendString("Waiting for");
 	CLCD_voidGoToXY(1, 0);
 	CLCD_voidSendString("GPS ");
-	int flagGGA = 1;
-	char c1;
-	char GGA[100];
+	uint8_t flagGGA = 1;
+	uint8_t c1;
+	uint8_t GGA[100];
 	//char count = 0;
 	//double latitude_sum = 0.0;
 	//double longitude_sum = 0.0;
-	char GGA_loop_index;
+	uint8_t GGA_loop_index;
 	//char uartBuflong[100] ={0};
 	//char uartBuflat[100] ={0};
 	do {
@@ -642,7 +644,7 @@ void GPS_init(void) {
 		//MCAL_UART_u8ReceiveData(UART_3, (uint8_t *)&c);
 		HAL_UART_Receive(&huart6, (uint8_t*) &c1, sizeof(c1), 1000);
 		// start with the dollar sign if not then loop to find it
-		for (int k = 0; c1 != '$'; k++) {
+		while( c1 != '$') {
 			// MCAL_UART_u8ReceiveData(UART_3, (uint8_t *)&c);
 			HAL_UART_Receive(&huart6, (uint8_t*) &c1, sizeof(c1), 1000);
 		}

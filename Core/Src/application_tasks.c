@@ -12,6 +12,7 @@ extern volatile uint16_t Global_u16SlitCount;
 extern xSemaphoreHandle send_message_semaphore;
 extern xSemaphoreHandle receive_message_semaphore;
 extern xSemaphoreHandle touchScreen_semaphore;
+//extern xSemaphoreHandle car_control_semaphore;
 extern TaskHandle_t send_message_task_handle;
 
 extern uint8_t tx_buffer[32];
@@ -106,6 +107,25 @@ void Task_handleReceivedMessage(void *parameters) {
 		//bearing_difference
 		bearing_difference = fabs(message_direction - car_direction);
 
+		CLCD_voidDisplayClear();
+
+		CLCD_voidWriteSpeacialChar(Upper_Left, 0, 0, 13);
+		CLCD_voidWriteSpeacialChar(Upper_Mid, 1, 0, 14);
+		CLCD_voidWriteSpeacialChar(Upper_Right, 2, 0, 15);
+
+		CLCD_voidWriteSpeacialChar(Lower_Left, 3, 1, 13);
+		CLCD_voidWriteSpeacialChar(Lower_Mid, 4, 1, 14);
+		CLCD_voidWriteSpeacialChar(Lower_Right, 5, 1, 15);
+
+		CLCD_voidGoToXY(0, 0);
+
+		CLCD_voidSendString("Warning: Car");
+
+		CLCD_voidGoToXY(1, 2);
+
+		CLCD_voidSendString("In Front");
+
+#if 0
 		if (bearing_difference < 45 || bearing_difference > 135) {
 			//moving in same direction
 			if (bearing_difference > 170 || bearing_difference < 10) {
@@ -136,7 +156,7 @@ void Task_handleReceivedMessage(void *parameters) {
 				}
 			}
 		}
-
+#endif
 		HAL_UART_Receive_DMA(&huart1, rx_buffer, 32);
 		__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
 	}
@@ -303,7 +323,56 @@ void Task_directionOfCar(void *parameters) {
 }
 
 void Task_controlCar(void *parameters) {
+
 	uint8_t Local_u8Received_data = 0;
+
+	TickType_t xLastWakeTime;
+
+	xLastWakeTime = xTaskGetTickCount();
+
+	while (1) {
+		Local_u8Received_data = 0;
+
+		HAL_UART_Receive_IT(&huart4, &Local_u8Received_data, 1);
+
+		vTaskDelayUntil(&xLastWakeTime, 100 / portTICK_RATE_MS);
+
+		if (Local_u8Received_data != 'f' && Local_u8Received_data != 'b'
+				&& Local_u8Received_data != 'l' && Local_u8Received_data != 'r'
+				&& Local_u8Received_data != 's') {
+			/* Decrease The Speed Gradually */
+			if ((TIM3->CCR1) >= 10) {
+				TIM3->CCR1 -= 1;
+				TIM12->CCR1 -= 1;
+			}
+			/* Stop The RC Car */
+			else {
+				TIM3->CCR1 = 0;
+				TIM12->CCR1 = 0;
+			}
+		} else {
+
+			/* Return To The Normal Speed */
+			TIM3->CCR1 = 75;
+			TIM12->CCR1 = 75;
+
+			/* Direction Change According To The Received Direction */
+			if (Local_u8Received_data == 'f')
+				HAL_CAR_CTRL_voidForward();
+			else if (Local_u8Received_data == 'b')
+				HAL_CAR_CTRL_voidBackward();
+			else if (Local_u8Received_data == 'l')
+				HAL_CAR_CTRL_voidRight();
+			else if (Local_u8Received_data == 'r')
+				HAL_CAR_CTRL_voidLeft();
+			else if (Local_u8Received_data == 's') {
+				HAL_CAR_CTRL_voidStop();
+				CLCD_voidDisplayClear();
+			}
+		}
+
+	}
+#if 0
 	while (1) {
 		/* Initialize buffer Variable To Hold Received Char */
 		Local_u8Received_data = 0;
@@ -344,9 +413,15 @@ void Task_controlCar(void *parameters) {
 			}
 		}
 
+		vTaskDelay(100 / portTICK_RATE_MS);
+
+
 	}
+#endif
+
 }
 
+#if 0
 void Task_touchScreen(void *parameters) {
 
 	int i = 0;
@@ -387,54 +462,56 @@ void Task_touchScreen(void *parameters) {
 				} else if (HeaderFrame[4] == 0x57) {
 					/* Dataframe contains password to validate */
 				} else if (HeaderFrame[5] == 0x01) {
-				/*	if (usernameFlag && PassFlag) {
-						switch_to_Send_page[9] = 0X03;
-						current_screen_frame = screenResponseState;
-						HAL_UART_Transmit_IT(&huart5, switch_to_Send_page,
-								sizeof(switch_to_Send_page), 100);
-					} else {
-						switch_to_Send_page[9] = 0X04;
-						current_screen_frame = screenResponseState;
-						HAL_UART_Transmit_IT(&huart5, switch_to_Send_page,
-								sizeof(switch_to_Send_page), 100);
-					}*/
+					/*	if (usernameFlag && PassFlag) {
+					 switch_to_Send_page[9] = 0X03;
+					 current_screen_frame = screenResponseState;
+					 HAL_UART_Transmit_IT(&huart5, switch_to_Send_page,
+					 sizeof(switch_to_Send_page), 100);
+					 } else {
+					 switch_to_Send_page[9] = 0X04;
+					 current_screen_frame = screenResponseState;
+					 HAL_UART_Transmit_IT(&huart5, switch_to_Send_page,
+					 sizeof(switch_to_Send_page), 100);
+					 }*/
 				} else if (HeaderFrame[4] == 0x59) {
 					for (i = 0; DataFrame[i] != '\0'; i++) {
 						arrested_car[i] = DataFrame[i];
 					}
 					arrested_car[i] = '\0';
 
-				}
-				else if (HeaderFrame[5] == 0x05) {
-			/*		long int encrypted_message[100] = { '\0' };
-					long int message_to_send[10] = { '\0' };
-					char public_key_msg[7] = { '\0' };
-					char final_message[10] = { '\0' };
-					generate_primes(&p, &q);
-					n = p * q;
-					t = (p - 1) * (q - 1);
-					// Calculate e and d
-					ce();
-					// Encrypt the message
-					encrypt(arrested_car, d[0], encrypted_message);
-					buid_publickey(e[0], public_key_msg);
-					HAL_UART_Transmit(&huart1, public_key_msg,
-							sizeof(public_key_msg), 100);
+				} else if (HeaderFrame[5] == 0x05) {
+					/*		long int encrypted_message[100] = { '\0' };
+					 long int message_to_send[10] = { '\0' };
+					 char public_key_msg[7] = { '\0' };
+					 char final_message[10] = { '\0' };
+					 generate_primes(&p, &q);
+					 n = p * q;
+					 t = (p - 1) * (q - 1);
+					 // Calculate e and d
+					 ce();
+					 // Encrypt the message
+					 encrypt(arrested_car, d[0], encrypted_message);
+					 buid_publickey(e[0], public_key_msg);
+					 HAL_UART_Transmit(&huart1, public_key_msg,
+					 sizeof(public_key_msg), 100);
 
-					buid_encrypted_message(encrypted_message, message_to_send);
-					translate_from_longint_char(message_to_send, final_message);
-					HAL_UART_Transmit(&huart1, final_message,
-							sizeof(final_message), 100);
-*/
+					 buid_encrypted_message(encrypted_message, message_to_send);
+					 translate_from_longint_char(message_to_send, final_message);
+					 HAL_UART_Transmit(&huart1, final_message,
+					 sizeof(final_message), 100);
+					 */
 				}
 			}
 			break;
+#if 0
 		case screenResponseState:
 			if (screen_character_recieved == 0x4B) {
 				current_screen_frame = headerState;
 			}
 			break;
+#endif
 		}
 	}
 
 }
+#endif

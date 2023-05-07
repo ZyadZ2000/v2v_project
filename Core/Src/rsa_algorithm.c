@@ -12,6 +12,7 @@ long int cd(long int);
 void encrypt();
 void decrypt();
 
+#if 0
 int main() {
 
 	p = 5;
@@ -30,6 +31,7 @@ int main() {
 
     return 0;
 }
+#endif
 
 int prime(long int pr) {
     int i;

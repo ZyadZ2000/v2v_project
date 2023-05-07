@@ -5,6 +5,7 @@ extern volatile uint16_t Global_u16SlitCount;
 extern xSemaphoreHandle send_message_semaphore;
 extern xSemaphoreHandle receive_message_semaphore;
 extern xSemaphoreHandle touchScreen_semaphore;
+//extern xSemaphoreHandle car_control_semaphore;
 
 extern uint8_t rx_buffer[32];
 extern uint8_t tx_buffer[32];
@@ -14,18 +15,15 @@ extern uint32_t edge1Time;
 extern uint32_t edge2Time;
 extern uint8_t edgeNumber;
 
-
-
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+	portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
 	if (huart->Instance == UART5) {
-		portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
-		xSemaphoreGiveFromISR(
-				touchScreen_semaphore,
-				&xHigherPriorityTaskWoken);
+		NVIC_ClearPendingIRQ(UART5_IRQn);
+
+		xSemaphoreGiveFromISR(touchScreen_semaphore, &xHigherPriorityTaskWoken);
+
 		portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
 	} else if (huart->Instance == USART1) {
-		portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
-
 		NVIC_ClearPendingIRQ(USART1_IRQn);
 
 		xSemaphoreGiveFromISR(receive_message_semaphore,

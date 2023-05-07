@@ -53,6 +53,7 @@
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
+TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim12;
 
 UART_HandleTypeDef huart4;
@@ -73,6 +74,7 @@ char second_car_direction[8] = { 0 };
 xSemaphoreHandle send_message_semaphore;
 xSemaphoreHandle receive_message_semaphore;
 xSemaphoreHandle touchScreen_semaphore;
+//xSemaphoreHandle car_control_semaphore;
 TaskHandle_t send_message_task_handle;
 
 /* Speed Sensor Variables*/
@@ -171,7 +173,6 @@ int main(void) {
 	MX_TIM4_Init();
 	MX_TIM12_Init();
 
-
 	/* USER CODE BEGIN 2 */
 	CLCD_voidInit();
 	CLCD_voidGoToXY(0, 0);
@@ -189,6 +190,7 @@ int main(void) {
 	send_message_semaphore = xSemaphoreCreateBinary();
 	receive_message_semaphore = xSemaphoreCreateBinary();
 	touchScreen_semaphore = xSemaphoreCreateBinary();
+	//car_control_semaphore = xSemaphoreCreateBinary();
 	/* USER CODE END RTOS_SEMAPHORES */
 
 	/* USER CODE BEGIN RTOS_TIMERS */
@@ -200,26 +202,28 @@ int main(void) {
 	/* USER CODE END RTOS_QUEUES */
 
 	/* USER CODE BEGIN RTOS_THREADS */
-	xTaskCreate(&Task_speedCalculation, "Speed_Calculation", 240, NULL, 5,
+	xTaskCreate(&Task_speedCalculation, "Speed_Calculation", 240, NULL, 3,
 	NULL);
 
-	xTaskCreate(&Task_sendMessage, "Message_Sending", 240, NULL, 7,
+	xTaskCreate(&Task_sendMessage, "Message_Sending", 240, NULL, 6,
 			&send_message_task_handle);
 
-	xTaskCreate(&Task_handleReceivedMessage, "Message_Handling", 240, NULL, 6,
+	xTaskCreate(&Task_handleReceivedMessage, "Message_Handling", 240, NULL, 4,
 	NULL);
 
-	xTaskCreate(&Task_readingGPS, "GPS_Reading", 240, NULL, 3,
+	xTaskCreate(&Task_readingGPS, "GPS_Reading", 240, NULL, 2,
 	NULL);
 
-	xTaskCreate(&Task_directionOfCar, "Car_direction", 240, NULL, 4,
+	xTaskCreate(&Task_directionOfCar, "Car_direction", 240, NULL, 5,
 	NULL);
 
-	xTaskCreate(&Task_controlCar, "Car_Control", 240, NULL, 2,
+	xTaskCreate(&Task_controlCar, "Car_Control", 240, NULL, 7,
 	NULL);
 
+#if 0
 	xTaskCreate(&Task_touchScreen, "Touch_Screen", 240, NULL, 1,
-		NULL);
+	NULL);
+#endif
 	/* USER CODE END RTOS_THREADS */
 
 	Ringbuf_init();
@@ -601,6 +605,61 @@ static void MX_GPIO_Init(void) {
 
 	/* GPIO Ports Clock Enable */
 	__HAL_RCC_GPIOC_CLK_ENABLE();
+	__HAL_RCC_GPIOH_CLK_ENABLE();
+	__HAL_RCC_GPIOA_CLK_ENABLE();
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+	__HAL_RCC_GPIOD_CLK_ENABLE();
+
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(GPIOC,
+			Motor3_Pin | Motor4_Pin | Motor1_Pin | Motor2_Pin | GPIO_PIN_6
+					| GPIO_PIN_7 | Buzzer_Low_Pin | Buzzer_High_Pin,
+			GPIO_PIN_RESET);
+
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2 | GPIO_PIN_11 | GPIO_PIN_12,
+			GPIO_PIN_RESET);
+
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(GPIOB,
+			GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_7 | GPIO_PIN_12
+					| GPIO_PIN_13 | GPIO_PIN_15, GPIO_PIN_RESET);
+
+	/*Configure GPIO pins : Motor3_Pin Motor4_Pin Motor1_Pin Motor2_Pin
+	 Buzzer_Low_Pin Buzzer_High_Pin */
+	GPIO_InitStruct.Pin = Motor3_Pin | Motor4_Pin | Motor1_Pin | Motor2_Pin
+			| GPIO_PIN_6 | GPIO_PIN_7 | Buzzer_Low_Pin | Buzzer_High_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : PC0 */
+	GPIO_InitStruct.Pin = GPIO_PIN_0;
+	GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : PA2 */
+	GPIO_InitStruct.Pin = GPIO_PIN_2 | GPIO_PIN_11 | GPIO_PIN_12;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+	/*Configure GPIO pins : PB3 PB4 PB5 PB7 */
+	GPIO_InitStruct.Pin = GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_7
+			| GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_15;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+	HAL_NVIC_SetPriority(EXTI0_IRQn, 5, 0);
+	//HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+#if 0
+	/* GPIO Ports Clock Enable */
+	__HAL_RCC_GPIOC_CLK_ENABLE();
 	__HAL_RCC_GPIOA_CLK_ENABLE();
 	__HAL_RCC_GPIOB_CLK_ENABLE();
 	__HAL_RCC_GPIOD_CLK_ENABLE();
@@ -614,7 +673,7 @@ static void MX_GPIO_Init(void) {
 	/* EXTI interrupt init*/
 	HAL_NVIC_SetPriority(EXTI0_IRQn, 5, 0);
 	HAL_NVIC_EnableIRQ(EXTI0_IRQn);
-
+#endif
 }
 
 /* USER CODE BEGIN 4 */
@@ -644,7 +703,7 @@ void GPS_init(void) {
 		//MCAL_UART_u8ReceiveData(UART_3, (uint8_t *)&c);
 		HAL_UART_Receive(&huart6, (uint8_t*) &c1, sizeof(c1), 1000);
 		// start with the dollar sign if not then loop to find it
-		while( c1 != '$') {
+		while (c1 != '$') {
 			// MCAL_UART_u8ReceiveData(UART_3, (uint8_t *)&c);
 			HAL_UART_Receive(&huart6, (uint8_t*) &c1, sizeof(c1), 1000);
 		}

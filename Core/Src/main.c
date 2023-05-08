@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -51,6 +50,11 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
@@ -59,7 +63,7 @@ TIM_HandleTypeDef htim12;
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart5;
-UART_HandleTypeDef huart6;
+UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart1_tx;
 
@@ -121,17 +125,19 @@ uint8_t arrested_car[20] = { 0 };
 /* Private function prototypes -----------------------------------------------*/
 
 /* USER CODE BEGIN PFP */
+
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART1_UART_Init(void);
-static void MX_USART6_UART_Init(void);
-static void MX_UART4_Init(void);
-static void MX_UART5_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM12_Init(void);
+static void MX_UART4_Init(void);
+static void MX_UART5_Init(void);
+static void MX_USART3_UART_Init(void);
 static void GPS_init(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -168,9 +174,9 @@ int main(void) {
 	MX_GPIO_Init();
 	MX_DMA_Init();
 	MX_USART1_UART_Init();
-	MX_USART6_UART_Init();
 	MX_UART4_Init();
 	MX_UART5_Init();
+	MX_USART3_UART_Init();
 	MX_TIM3_Init();
 	MX_TIM4_Init();
 	MX_TIM12_Init();
@@ -549,33 +555,33 @@ static void MX_USART1_UART_Init(void) {
 }
 
 /**
- * @brief USART6 Initialization Function
+ * @brief USART3 Initialization Function
  * @param None
  * @retval None
  */
-static void MX_USART6_UART_Init(void) {
+static void MX_USART3_UART_Init(void) {
 
-	/* USER CODE BEGIN USART6_Init 0 */
+	/* USER CODE BEGIN USART3_Init 0 */
 
-	/* USER CODE END USART6_Init 0 */
+	/* USER CODE END USART3_Init 0 */
 
-	/* USER CODE BEGIN USART6_Init 1 */
+	/* USER CODE BEGIN USART3_Init 1 */
 
-	/* USER CODE END USART6_Init 1 */
-	huart6.Instance = USART6;
-	huart6.Init.BaudRate = 9600;
-	huart6.Init.WordLength = UART_WORDLENGTH_8B;
-	huart6.Init.StopBits = UART_STOPBITS_1;
-	huart6.Init.Parity = UART_PARITY_NONE;
-	huart6.Init.Mode = UART_MODE_TX_RX;
-	huart6.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-	huart6.Init.OverSampling = UART_OVERSAMPLING_16;
-	if (HAL_UART_Init(&huart6) != HAL_OK) {
+	/* USER CODE END USART3_Init 1 */
+	huart3.Instance = USART3;
+	huart3.Init.BaudRate = 9600;
+	huart3.Init.WordLength = UART_WORDLENGTH_8B;
+	huart3.Init.StopBits = UART_STOPBITS_1;
+	huart3.Init.Parity = UART_PARITY_NONE;
+	huart3.Init.Mode = UART_MODE_TX_RX;
+	huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+	if (HAL_UART_Init(&huart3) != HAL_OK) {
 		Error_Handler();
 	}
-	/* USER CODE BEGIN USART6_Init 2 */
+	/* USER CODE BEGIN USART3_Init 2 */
 
-	/* USER CODE END USART6_Init 2 */
+	/* USER CODE END USART3_Init 2 */
 
 }
 
@@ -607,16 +613,14 @@ static void MX_GPIO_Init(void) {
 
 	/* GPIO Ports Clock Enable */
 	__HAL_RCC_GPIOC_CLK_ENABLE();
-	__HAL_RCC_GPIOH_CLK_ENABLE();
 	__HAL_RCC_GPIOA_CLK_ENABLE();
 	__HAL_RCC_GPIOB_CLK_ENABLE();
 	__HAL_RCC_GPIOD_CLK_ENABLE();
 
 	/*Configure GPIO pin Output Level */
 	HAL_GPIO_WritePin(GPIOC,
-			Motor3_Pin | Motor4_Pin | Motor1_Pin | Motor2_Pin | GPIO_PIN_6
-					| GPIO_PIN_7 | Buzzer_Low_Pin | Buzzer_High_Pin,
-			GPIO_PIN_RESET);
+			GPIO_PIN_14 | GPIO_PIN_15 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_6
+					| GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9, GPIO_PIN_RESET);
 
 	/*Configure GPIO pin Output Level */
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2 | GPIO_PIN_11 | GPIO_PIN_12,
@@ -624,13 +628,13 @@ static void MX_GPIO_Init(void) {
 
 	/*Configure GPIO pin Output Level */
 	HAL_GPIO_WritePin(GPIOB,
-			GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_7 | GPIO_PIN_12
-					| GPIO_PIN_13 | GPIO_PIN_15, GPIO_PIN_RESET);
+			GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_15 | GPIO_PIN_3 | GPIO_PIN_4
+					| GPIO_PIN_5 | GPIO_PIN_7, GPIO_PIN_RESET);
 
-	/*Configure GPIO pins : Motor3_Pin Motor4_Pin Motor1_Pin Motor2_Pin
-	 Buzzer_Low_Pin Buzzer_High_Pin */
-	GPIO_InitStruct.Pin = Motor3_Pin | Motor4_Pin | Motor1_Pin | Motor2_Pin
-			| GPIO_PIN_6 | GPIO_PIN_7 | Buzzer_Low_Pin | Buzzer_High_Pin;
+	/*Configure GPIO pins : PC14 PC15 PC2 PC3
+	 PC6 PC7 PC8 PC9 */
+	GPIO_InitStruct.Pin = GPIO_PIN_14 | GPIO_PIN_15 | GPIO_PIN_2 | GPIO_PIN_3
+			| GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9;
 	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -642,40 +646,26 @@ static void MX_GPIO_Init(void) {
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-	/*Configure GPIO pin : PA2 */
+	/*Configure GPIO pins : PA2 PA11 PA12 */
 	GPIO_InitStruct.Pin = GPIO_PIN_2 | GPIO_PIN_11 | GPIO_PIN_12;
 	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-	/*Configure GPIO pins : PB3 PB4 PB5 PB7 */
-	GPIO_InitStruct.Pin = GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_7
-			| GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_15;
+	/*Configure GPIO pins : PB12 PB13 PB15 PB3
+	 PB4 PB5 PB7 */
+	GPIO_InitStruct.Pin = GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_15 | GPIO_PIN_3
+			| GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_7;
 	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-	HAL_NVIC_SetPriority(EXTI0_IRQn, 5, 0);
-	//HAL_NVIC_EnableIRQ(EXTI0_IRQn);
-#if 0
-	/* GPIO Ports Clock Enable */
-	__HAL_RCC_GPIOC_CLK_ENABLE();
-	__HAL_RCC_GPIOA_CLK_ENABLE();
-	__HAL_RCC_GPIOB_CLK_ENABLE();
-	__HAL_RCC_GPIOD_CLK_ENABLE();
-
-	/*Configure GPIO pin : PC0 */
-	GPIO_InitStruct.Pin = GPIO_PIN_0;
-	GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
 	/* EXTI interrupt init*/
 	HAL_NVIC_SetPriority(EXTI0_IRQn, 5, 0);
 	HAL_NVIC_EnableIRQ(EXTI0_IRQn);
-#endif
+
 }
 
 /* USER CODE BEGIN 4 */
@@ -703,21 +693,21 @@ void GPS_init(void) {
 		//HAL_UART_Transmit(&huart3,(uint8_t *)"extracting the message", 23, 100);
 
 		//MCAL_UART_u8ReceiveData(UART_3, (uint8_t *)&c);
-		HAL_UART_Receive(&huart6, (uint8_t*) &c1, sizeof(c1), 1000);
+		HAL_UART_Receive(&huart3, (uint8_t*) &c1, sizeof(c1), 1000);
 		// start with the dollar sign if not then loop to find it
 		while (c1 != '$') {
 			// MCAL_UART_u8ReceiveData(UART_3, (uint8_t *)&c);
-			HAL_UART_Receive(&huart6, (uint8_t*) &c1, sizeof(c1), 1000);
+			HAL_UART_Receive(&huart3, (uint8_t*) &c1, sizeof(c1), 1000);
 		}
 
 		store_char(c1, _rx_buffer);
 		//MCAL_UART_u8ReceiveData(UART_3,(uint8_t *) &c);
-		HAL_UART_Receive(&huart6, (uint8_t*) &c1, sizeof(c1), 1000);
+		HAL_UART_Receive(&huart3, (uint8_t*) &c1, sizeof(c1), 1000);
 		// loop to store all the frame after dollar until next dollar recieved
 		while (c1 != '$') {
 			store_char(c1, _rx_buffer);
 			//MCAL_UART_u8ReceiveData(UART_3,(uint8_t *) &c);
-			HAL_UART_Receive(&huart6, (uint8_t*) &c1, sizeof(c1), 1000);
+			HAL_UART_Receive(&huart3, (uint8_t*) &c1, sizeof(c1), 1000);
 		}
 
 		// once the new dollar received the old frame is now in the buffer to be decoded

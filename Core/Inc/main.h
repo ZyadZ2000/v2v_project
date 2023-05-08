@@ -40,9 +40,9 @@ extern TIM_HandleTypeDef htim3;
 extern TIM_HandleTypeDef htim4;
 extern TIM_HandleTypeDef htim12;
 extern UART_HandleTypeDef huart1;
-extern UART_HandleTypeDef huart5;
-extern UART_HandleTypeDef huart6;
+extern UART_HandleTypeDef huart3;
 extern UART_HandleTypeDef huart4;
+extern UART_HandleTypeDef huart5;
 extern DMA_HandleTypeDef hdma_usart1_rx;
 extern DMA_HandleTypeDef hdma_usart1_tx;
 
@@ -74,18 +74,6 @@ void Error_Handler(void);
 
 /* Private defines -----------------------------------------------------------*/
 /* USER CODE BEGIN Private defines */
-#define Motor3_Pin GPIO_PIN_14
-#define Motor3_GPIO_Port GPIOC
-#define Motor4_Pin GPIO_PIN_15
-#define Motor4_GPIO_Port GPIOC
-#define Motor1_Pin GPIO_PIN_2
-#define Motor1_GPIO_Port GPIOC
-#define Motor2_Pin GPIO_PIN_3
-#define Motor2_GPIO_Port GPIOC
-#define Buzzer_Low_Pin GPIO_PIN_8
-#define Buzzer_Low_GPIO_Port GPIOC
-#define Buzzer_High_Pin GPIO_PIN_9
-#define Buzzer_High_GPIO_Port GPIOC
 
 /* USER CODE END Private defines */
 

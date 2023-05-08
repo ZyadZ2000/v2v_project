@@ -220,21 +220,21 @@ void Task_readingGPS(void *parameters) {
 			//HAL_UART_Transmit(&huart6,(uint8_t *)"extracting the message", 23, 100);
 
 			//MCAL_UART_u8ReceiveData(UART_3, (uint8_t *)&c);
-			HAL_UART_Receive(&huart6, (uint8_t*) &c1, sizeof(c1), 1000);
+			HAL_UART_Receive(&huart3, (uint8_t*) &c1, sizeof(c1), 1000);
 			// start with the dollar sign if not then loop to find it
 			for (int k = 0; c1 != '$'; k++) {
 				// MCAL_UART_u8ReceiveData(UART_3, (uint8_t *)&c);
-				HAL_UART_Receive(&huart6, (uint8_t*) &c1, sizeof(c1), 1000);
+				HAL_UART_Receive(&huart3, (uint8_t*) &c1, sizeof(c1), 1000);
 			}
 
 			store_char(c1, _rx_buffer);
 			//MCAL_UART_u8ReceiveData(UART_3,(uint8_t *) &c);
-			HAL_UART_Receive(&huart6, (uint8_t*) &c1, sizeof(c1), 1000);
+			HAL_UART_Receive(&huart3, (uint8_t*) &c1, sizeof(c1), 1000);
 			// loop to store all the frame after dollar until next dollar recieved
 			while (c1 != '$') {
 				store_char(c1, _rx_buffer);
 				//MCAL_UART_u8ReceiveData(UART_3,(uint8_t *) &c);
-				HAL_UART_Receive(&huart6, (uint8_t*) &c1, sizeof(c1), 1000);
+				HAL_UART_Receive(&huart3, (uint8_t*) &c1, sizeof(c1), 1000);
 			}
 
 			// once the new dollar received the old frame is now in the buffer to be decoded

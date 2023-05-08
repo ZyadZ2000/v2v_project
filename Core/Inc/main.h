@@ -45,6 +45,7 @@ extern UART_HandleTypeDef huart4;
 extern UART_HandleTypeDef huart5;
 extern DMA_HandleTypeDef hdma_usart1_rx;
 extern DMA_HandleTypeDef hdma_usart1_tx;
+extern DMA_HandleTypeDef hdma_usart3_rx;
 
 /* Touch-Screen Definitions */
 typedef enum {

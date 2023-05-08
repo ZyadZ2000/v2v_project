@@ -73,7 +73,7 @@ char second_car_direction[8] = { 0 };
 /* RTOS Handles and Semaphores */
 xSemaphoreHandle send_message_semaphore;
 xSemaphoreHandle receive_message_semaphore;
-xSemaphoreHandle touchScreen_semaphore;
+//xSemaphoreHandle touchScreen_semaphore;
 //xSemaphoreHandle car_control_semaphore;
 TaskHandle_t send_message_task_handle;
 
@@ -103,6 +103,7 @@ uint8_t Lower_Right[8] = { 0x01, 0x01, 0x01, 0x02, 0x04, 0x08, 0x10, 0x00 };
 uint8_t Lower_Mid[8] = { 0x04, 0x04, 0x04, 0x04, 0x0E, 0x00, 0x00, 0x1F };
 uint8_t Upper_Mid[8] = { 0x1F, 0x00, 0x00, 0x00, 0x04, 0x00, 0x0C, 0x04 };
 
+#if 0
 /* Touch-Screen Variables */
 uint8_t screen_character_recieved;
 
@@ -114,6 +115,7 @@ uint8_t HeaderFrame[7] = { 0 };
 uint8_t DataFrame[20] = { 0 };
 uint8_t arrested_car[20] = { 0 };
 
+#endif
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -189,7 +191,7 @@ int main(void) {
 	/* add semaphores, ... */
 	send_message_semaphore = xSemaphoreCreateBinary();
 	receive_message_semaphore = xSemaphoreCreateBinary();
-	touchScreen_semaphore = xSemaphoreCreateBinary();
+	//touchScreen_semaphore = xSemaphoreCreateBinary();
 	//car_control_semaphore = xSemaphoreCreateBinary();
 	/* USER CODE END RTOS_SEMAPHORES */
 
@@ -685,7 +687,7 @@ void GPS_init(void) {
 	CLCD_voidSendString("GPS ");
 	uint8_t flagGGA = 1;
 	uint8_t c1;
-	uint8_t GGA[100];
+	int8_t GGA[100];
 	//char count = 0;
 	//double latitude_sum = 0.0;
 	//double longitude_sum = 0.0;

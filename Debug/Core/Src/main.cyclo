@@ -1,0 +1,13 @@
+main.c:140:6:Task_initialization	1
+main.c:192:5:main	1
+main.c:268:6:SystemClock_Config	4
+main.c:319:13:MX_TIM3_Init	6
+main.c:374:13:MX_TIM4_Init	6
+main.c:427:13:MX_TIM12_Init	5
+main.c:475:13:MX_UART4_Init	2
+main.c:506:13:MX_UART5_Init	2
+main.c:537:13:MX_USART1_UART_Init	2
+main.c:568:13:MX_USART3_UART_Init	2
+main.c:597:13:MX_DMA_Init	1
+main.c:621:13:MX_GPIO_Init	1
+main.c:690:6:Error_Handler	1

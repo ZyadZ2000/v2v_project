@@ -18,6 +18,8 @@
 #include "CLCD_private.h"
 #include "CLCD_config.h"
 
+#include "delay.h"
+
 
 //SEND COMMAND TO LCD//
 static void CLCD_voidSendCommand(LCD_Data Copy_u8Command)
@@ -38,7 +40,7 @@ static void CLCD_voidSendCommand(LCD_Data Copy_u8Command)
 	//ENABLE PULSE WITH 2 MS DELAY//
 	 HAL_GPIO_WritePin(CLCD_CTRL_PORT , CLCD_E_PIN , GPIO_PIN_SET);
 
-	 HAL_Delay(2);
+	DELAY_MS(2);
 	HAL_GPIO_WritePin(CLCD_CTRL_PORT , CLCD_E_PIN , GPIO_PIN_RESET);
 }
 
@@ -63,7 +65,7 @@ static void CLCD_voidSendData(LCD_Data Copy_u8Data)
 	//ENABLE PULSE WITH 2 MS DELAY//
 	HAL_GPIO_WritePin(CLCD_CTRL_PORT , CLCD_E_PIN , GPIO_PIN_SET);
 
-	HAL_Delay(2);
+	DELAY_MS(2);
 
 	HAL_GPIO_WritePin(CLCD_CTRL_PORT , CLCD_E_PIN , GPIO_PIN_RESET);
 }
@@ -74,8 +76,8 @@ void CLCD_voidInit(void)
 {
 	LCD_Data DataPins;
 
-	//WAIT FOR MORE THAN 30 MS //
-	HAL_Delay(40);
+	//WAIT FOR MORE THAN 40 MS //
+	DELAY_MS(40);
 
 
 	//FUNCTION SET : 1 LINE , 5*8 FONT SIZE//

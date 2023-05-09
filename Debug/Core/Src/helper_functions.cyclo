@@ -1,0 +1,4 @@
+helper_functions.c:9:15:deg2rad	1
+helper_functions.c:13:15:rad2deg	1
+helper_functions.c:17:8:bearing	1
+helper_functions.c:25:8:distance	1

@@ -1,0 +1,7 @@
+../Core/Src/uartRingBuffer.c:20:6:Ringbuf_init	4	static
+../Core/Src/uartRingBuffer.c:24:6:store_char	24	static
+../Core/Src/uartRingBuffer.c:37:5:Uart_read	16	static
+../Core/Src/uartRingBuffer.c:51:10:IsDataAvailable	4	static
+../Core/Src/uartRingBuffer.c:56:5:Uart_peek	4	static
+../Core/Src/uartRingBuffer.c:70:5:Copy_upto	32	static
+../Core/Src/uartRingBuffer.c:108:5:Wait_for	24	static

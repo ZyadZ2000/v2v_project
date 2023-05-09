@@ -1,0 +1,4 @@
+../Core/Src/helper_functions.c:9:15:deg2rad	16	static
+../Core/Src/helper_functions.c:13:15:rad2deg	16	static
+../Core/Src/helper_functions.c:17:8:bearing	88	static
+../Core/Src/helper_functions.c:25:8:distance	104	static

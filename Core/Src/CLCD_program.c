@@ -42,6 +42,8 @@ static void CLCD_voidSendCommand(LCD_Data Copy_u8Command)
 
 	DELAY_MS(2);
 	HAL_GPIO_WritePin(CLCD_CTRL_PORT , CLCD_E_PIN , GPIO_PIN_RESET);
+
+	DELAY_MS(5);
 }
 
 
@@ -68,6 +70,8 @@ static void CLCD_voidSendData(LCD_Data Copy_u8Data)
 	DELAY_MS(2);
 
 	HAL_GPIO_WritePin(CLCD_CTRL_PORT , CLCD_E_PIN , GPIO_PIN_RESET);
+
+	DELAY_MS(5);
 }
 
 
@@ -106,6 +110,8 @@ void CLCD_voidInit(void)
 	DataPins.Pins = 0b1000;
 	CLCD_voidSendCommand(DataPins);
 	//CLCD_voidSendCommand(0X38);
+
+	DELAY_MS(5);
 }
 
 
@@ -120,6 +126,8 @@ void CLCD_voidDisplayClear(void)
 
 	DataPins.Pins = 0b0001;
 	CLCD_voidSendCommand(DataPins);
+
+	DELAY_MS(5);
 
 }
 
@@ -177,6 +185,8 @@ void CLCD_voidGoToXY(u8 Copy_u8Xpos , u8 Copy_u8Ypos)
 
 	//SET DDRAM ADDRESS COMMAND //
 	//CLCD_voidSendCommand(Local_u8Address|0X80);
+
+	DELAY_MS(5);
 
 }
 

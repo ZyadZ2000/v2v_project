@@ -1,0 +1,8 @@
+CLCD_program.c:25:13:CLCD_voidSendCommand	1
+CLCD_program.c:51:13:CLCD_voidSendData	1
+CLCD_program.c:79:6:CLCD_voidInit	1
+CLCD_program.c:118:6:CLCD_voidDisplayClear	1
+CLCD_program.c:138:6:CLCD_voidSendString	2
+CLCD_program.c:161:6:CLCD_voidGoToXY	3
+CLCD_program.c:197:6:CLCD_voidWriteSpeacialChar	2
+CLCD_program.c:248:6:CLCD_voidWriteNumber	6

@@ -119,8 +119,6 @@ uint8_t arrested_car[20] = { 0 };
 #endif
 /* USER CODE END PV */
 
-/* USER CODE END PV */
-
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
@@ -139,8 +137,12 @@ static void MX_USART3_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
 void Task_initialization(void *parameters) {
+
+	send_message_semaphore = xSemaphoreCreateBinary();
+	receive_message_semaphore = xSemaphoreCreateBinary();
+	//touchScreen_semaphore = xSemaphoreCreateBinary();
+	//car_control_semaphore = xSemaphoreCreateBinary();
 
 	CLCD_voidInit();
 	CLCD_voidGoToXY(0, 0);
@@ -148,6 +150,8 @@ void Task_initialization(void *parameters) {
 	CLCD_voidGoToXY(1, 2);
 	CLCD_voidSendString("GP: 2023");
 
+
+#if 0
 	/* Initialize Ring Buffer */
 	Ringbuf_init();
 
@@ -168,7 +172,7 @@ void Task_initialization(void *parameters) {
 
 	xTaskCreate(&Task_directionOfCar, "Car_direction", 240, NULL, 5,
 	NULL);
-
+#endif
 	xTaskCreate(&Task_controlCar, "Car_Control", 240, NULL, 7,
 	NULL);
 
@@ -176,8 +180,9 @@ void Task_initialization(void *parameters) {
 	xTaskCreate(&Task_touchScreen, "Touch_Screen", 240, NULL, 1,
 	NULL);
 #endif
-}
 
+	vTaskDelete(NULL);
+}
 /* USER CODE END 0 */
 
 /**
@@ -209,12 +214,16 @@ int main(void) {
 	MX_GPIO_Init();
 	MX_DMA_Init();
 	MX_USART1_UART_Init();
-	MX_UART4_Init();
-	MX_UART5_Init();
-	MX_USART3_UART_Init();
 	MX_TIM3_Init();
 	MX_TIM4_Init();
 	MX_TIM12_Init();
+	MX_UART4_Init();
+	MX_UART5_Init();
+	MX_USART3_UART_Init();
+	/* USER CODE BEGIN 2 */
+	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Start(&htim12, TIM_CHANNEL_1);
+	/* USER CODE END 2 */
 
 	/* USER CODE BEGIN RTOS_MUTEX */
 	/* add mutexes, ... */
@@ -222,10 +231,7 @@ int main(void) {
 
 	/* USER CODE BEGIN RTOS_SEMAPHORES */
 	/* add semaphores, ... */
-	send_message_semaphore = xSemaphoreCreateBinary();
-	receive_message_semaphore = xSemaphoreCreateBinary();
-	//touchScreen_semaphore = xSemaphoreCreateBinary();
-	//car_control_semaphore = xSemaphoreCreateBinary();
+
 	/* USER CODE END RTOS_SEMAPHORES */
 
 	/* USER CODE BEGIN RTOS_TIMERS */
@@ -237,14 +243,12 @@ int main(void) {
 	/* USER CODE END RTOS_QUEUES */
 
 	/* USER CODE BEGIN RTOS_THREADS */
-	xTaskCreate(&Task_initialization, "Initialization", 240, NULL, 1,
+	xTaskCreate(&Task_initialization, "Initialization", 240, NULL, 8,
 	NULL);
 	/* USER CODE END RTOS_THREADS */
 
 	/* Start scheduler */
-	if (send_message_semaphore != NULL) {
-		vTaskStartScheduler();
-	}
+	vTaskStartScheduler();
 
 	/* We should never get here as control is now taken by the scheduler */
 	/* Infinite loop */
@@ -326,7 +330,7 @@ static void MX_TIM3_Init(void) {
 
 	/* USER CODE END TIM3_Init 1 */
 	htim3.Instance = TIM3;
-	htim3.Init.Prescaler = 15;
+	htim3.Init.Prescaler = 89;
 	htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim3.Init.Period = 99;
 	htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -381,7 +385,7 @@ static void MX_TIM4_Init(void) {
 
 	/* USER CODE END TIM4_Init 1 */
 	htim4.Instance = TIM4;
-	htim4.Init.Prescaler = 15;
+	htim4.Init.Prescaler = 89;
 	htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim4.Init.Period = 65535;
 	htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -433,7 +437,7 @@ static void MX_TIM12_Init(void) {
 
 	/* USER CODE END TIM12_Init 1 */
 	htim12.Instance = TIM12;
-	htim12.Init.Prescaler = 15;
+	htim12.Init.Prescaler = 89;
 	htim12.Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim12.Init.Period = 99;
 	htim12.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -677,6 +681,7 @@ static void MX_GPIO_Init(void) {
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
+
 
 /**
  * @brief  This function is executed in case of error occurrence.

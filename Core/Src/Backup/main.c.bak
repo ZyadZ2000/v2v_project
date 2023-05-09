@@ -31,6 +31,7 @@
 #include "NMEA.h"
 #include "uartRingBuffer.h"
 #include "CLCD_interface.h"
+#include "gps.h"
 
 /* USER CODE END Includes */
 
@@ -50,23 +51,19 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
-
-/* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
-TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim12;
 
 UART_HandleTypeDef huart4;
-UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart5;
+UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart1_tx;
+DMA_HandleTypeDef hdma_usart3_rx;
 
+/* USER CODE BEGIN PV */
 /* Message Variables */
 uint8_t rx_buffer[32] = { 0 };
 uint8_t tx_buffer[32] = { 0 };
@@ -122,10 +119,9 @@ uint8_t arrested_car[20] = { 0 };
 #endif
 /* USER CODE END PV */
 
+/* USER CODE END PV */
+
 /* Private function prototypes -----------------------------------------------*/
-
-/* USER CODE BEGIN PFP */
-
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
@@ -136,13 +132,58 @@ static void MX_TIM12_Init(void);
 static void MX_UART4_Init(void);
 static void MX_UART5_Init(void);
 static void MX_USART3_UART_Init(void);
-static void GPS_init(void);
+
+/* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void Task_initialization(void *parameters) {
 
+	send_message_semaphore = xSemaphoreCreateBinary();
+	receive_message_semaphore = xSemaphoreCreateBinary();
+	//touchScreen_semaphore = xSemaphoreCreateBinary();
+	//car_control_semaphore = xSemaphoreCreateBinary();
+
+	CLCD_voidInit();
+	CLCD_voidGoToXY(0, 0);
+	CLCD_voidSendString("WELCOME TO V2X");
+	CLCD_voidGoToXY(1, 2);
+	CLCD_voidSendString("GP: 2023");
+
+#if 0
+	/* Initialize Ring Buffer */
+	Ringbuf_init();
+
+	/* Initialize GPS */
+	GPS_init();
+
+	xTaskCreate(&Task_speedCalculation, "Speed_Calculation", 240, NULL, 3,
+	NULL);
+
+	xTaskCreate(&Task_sendMessage, "Message_Sending", 240, NULL, 6,
+			&send_message_task_handle);
+
+	xTaskCreate(&Task_handleReceivedMessage, "Message_Handling", 240, NULL, 4,
+	NULL);
+
+	xTaskCreate(&Task_readingGPS, "GPS_Reading", 240, NULL, 2,
+	NULL);
+
+	xTaskCreate(&Task_directionOfCar, "Car_direction", 240, NULL, 5,
+	NULL);
+#endif
+	xTaskCreate(&Task_controlCar, "Car_Control", 240, NULL, 7,
+	NULL);
+
+#if 0
+	xTaskCreate(&Task_touchScreen, "Touch_Screen", 240, NULL, 1,
+	NULL);
+#endif
+
+	vTaskDelete(NULL);
+}
 /* USER CODE END 0 */
 
 /**
@@ -181,24 +222,13 @@ int main(void) {
 	MX_TIM4_Init();
 	MX_TIM12_Init();
 
-	/* USER CODE BEGIN 2 */
-	CLCD_voidInit();
-	CLCD_voidGoToXY(0, 0);
-	CLCD_voidSendString("WELCOME TO V2X");
-	CLCD_voidGoToXY(1, 2);
-	CLCD_voidSendString("GP: 2023");
-	/* USER CODE END 2 */
-
 	/* USER CODE BEGIN RTOS_MUTEX */
 	/* add mutexes, ... */
 	/* USER CODE END RTOS_MUTEX */
 
 	/* USER CODE BEGIN RTOS_SEMAPHORES */
 	/* add semaphores, ... */
-	send_message_semaphore = xSemaphoreCreateBinary();
-	receive_message_semaphore = xSemaphoreCreateBinary();
-	//touchScreen_semaphore = xSemaphoreCreateBinary();
-	//car_control_semaphore = xSemaphoreCreateBinary();
+
 	/* USER CODE END RTOS_SEMAPHORES */
 
 	/* USER CODE BEGIN RTOS_TIMERS */
@@ -210,39 +240,12 @@ int main(void) {
 	/* USER CODE END RTOS_QUEUES */
 
 	/* USER CODE BEGIN RTOS_THREADS */
-	xTaskCreate(&Task_speedCalculation, "Speed_Calculation", 240, NULL, 3,
+	xTaskCreate(&Task_initialization, "Initialization", 240, NULL, 8,
 	NULL);
-
-	xTaskCreate(&Task_sendMessage, "Message_Sending", 240, NULL, 6,
-			&send_message_task_handle);
-
-	xTaskCreate(&Task_handleReceivedMessage, "Message_Handling", 240, NULL, 4,
-	NULL);
-
-	xTaskCreate(&Task_readingGPS, "GPS_Reading", 240, NULL, 2,
-	NULL);
-
-	xTaskCreate(&Task_directionOfCar, "Car_direction", 240, NULL, 5,
-	NULL);
-
-	xTaskCreate(&Task_controlCar, "Car_Control", 240, NULL, 7,
-	NULL);
-
-#if 0
-	xTaskCreate(&Task_touchScreen, "Touch_Screen", 240, NULL, 1,
-	NULL);
-#endif
 	/* USER CODE END RTOS_THREADS */
 
-	Ringbuf_init();
-
-	/* Initialize GPS */
-	GPS_init();
-
 	/* Start scheduler */
-	if (send_message_semaphore != NULL) {
 		vTaskStartScheduler();
-	}
 
 	/* We should never get here as control is now taken by the scheduler */
 	/* Infinite loop */
@@ -592,8 +595,12 @@ static void MX_DMA_Init(void) {
 
 	/* DMA controller clock enable */
 	__HAL_RCC_DMA2_CLK_ENABLE();
+	__HAL_RCC_DMA1_CLK_ENABLE();
 
 	/* DMA interrupt init */
+	/* DMA1_Stream1_IRQn interrupt configuration */
+	HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0);
+	HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
 	/* DMA2_Stream2_IRQn interrupt configuration */
 	HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 5, 0);
 	HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
@@ -669,87 +676,7 @@ static void MX_GPIO_Init(void) {
 }
 
 /* USER CODE BEGIN 4 */
-void GPS_init(void) {
-	CLCD_voidDisplayClear();
-	CLCD_voidGoToXY(0, 0);
-	CLCD_voidSendString("Waiting for");
-	CLCD_voidGoToXY(1, 0);
-	CLCD_voidSendString("GPS ");
-	uint8_t flagGGA = 1;
-	uint8_t c1;
-	int8_t GGA[100];
-	//char count = 0;
-	//double latitude_sum = 0.0;
-	//double longitude_sum = 0.0;
-	uint8_t GGA_loop_index;
-	//char uartBuflong[100] ={0};
-	//char uartBuflat[100] ={0};
-	do {
 
-		for (GGA_loop_index = 0; GGA_loop_index < 100; GGA_loop_index++) {
-			GGA[(int) GGA_loop_index] = 0;
-		}
-		// extracting the message ($gga)
-		//HAL_UART_Transmit(&huart3,(uint8_t *)"extracting the message", 23, 100);
-
-		//MCAL_UART_u8ReceiveData(UART_3, (uint8_t *)&c);
-		HAL_UART_Receive(&huart3, (uint8_t*) &c1, sizeof(c1), 1000);
-		// start with the dollar sign if not then loop to find it
-		while (c1 != '$') {
-			// MCAL_UART_u8ReceiveData(UART_3, (uint8_t *)&c);
-			HAL_UART_Receive(&huart3, (uint8_t*) &c1, sizeof(c1), 1000);
-		}
-
-		store_char(c1, _rx_buffer);
-		//MCAL_UART_u8ReceiveData(UART_3,(uint8_t *) &c);
-		HAL_UART_Receive(&huart3, (uint8_t*) &c1, sizeof(c1), 1000);
-		// loop to store all the frame after dollar until next dollar recieved
-		while (c1 != '$') {
-			store_char(c1, _rx_buffer);
-			//MCAL_UART_u8ReceiveData(UART_3,(uint8_t *) &c);
-			HAL_UART_Receive(&huart3, (uint8_t*) &c1, sizeof(c1), 1000);
-		}
-
-		// once the new dollar received the old frame is now in the buffer to be decoded
-		// end of extracting
-
-		// HAL_UART_Transmit(&huart3,(uint8_t *)"\r\n", 2, 100);
-		// HAL_UART_Transmit(&huart3,(uint8_t *) "Before enter do while ", 23, 100);
-		//  HAL_UART_Transmit(&huart3,(uint8_t *)"\r\n", 2, 100);
-		//HAL_UART_Transmit(&huart3,(uint8_t *)"\r\n", 2, 100);
-		//HAL_UART_Transmit(&huart3,(uint8_t *) "inside do while ", 17, 100);
-		flagGGA = 1;
-
-		if (Wait_for("GGA") == 1) {
-			// HAL_UART_Transmit(&huart3,(uint8_t *) "found gga ", 11, 100);
-			//HAL_UART_Transmit(&huart3,(uint8_t *)"\r\n", 2, 100);
-			//HAL_UART_Transmit(&huart3,(uint8_t *) "outside wait ", 13, 100);
-			Copy_upto("*", GGA);
-			if (decodeGGA(GGA, &GGAST.ggastruct) == 0) {
-
-				//latitude_sum += GGAST.ggastruct.lcation.latitude;
-				//longitude_sum += GGAST.ggastruct.lcation.longitude;
-				// count++;
-				//if (count == 1) {
-				flagGGA = 0;
-				//}
-
-			}
-		}
-
-	} while (flagGGA == 1);
-
-	CLCD_voidDisplayClear();       //clear LCD screen
-
-	// in using freertos
-	// here is the delay ------
-
-	my_car_latitude = GGAST.ggastruct.lcation.latitude;	//latitude_sum ;/// 2;//* 100;
-	my_car_longitude = GGAST.ggastruct.lcation.longitude;//longitude_sum;// / 2; //* 100;
-	north_south = GGAST.ggastruct.lcation.NS;
-	east_west = GGAST.ggastruct.lcation.EW;
-// here we will write on lcd "now gps is working and system is activated "
-}
 /* USER CODE END 4 */
 
 /**

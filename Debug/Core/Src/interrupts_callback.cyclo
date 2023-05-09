@@ -1,0 +1,5 @@
+core_cm4.h:1777:22:__NVIC_ClearPendingIRQ	2
+interrupts_callback.c:18:6:HAL_UART_RxCpltCallback	4
+interrupts_callback.c:39:6:HAL_UART_TxCpltCallback	2
+interrupts_callback.c:48:6:HAL_GPIO_EXTI_Callback	2
+interrupts_callback.c:54:6:HAL_TIM_IC_CaptureCallback	3

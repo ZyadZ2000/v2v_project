@@ -1,0 +1,7 @@
+uartRingBuffer.c:20:6:Ringbuf_init	1
+uartRingBuffer.c:24:6:store_char	2
+uartRingBuffer.c:37:5:Uart_read	2
+uartRingBuffer.c:51:10:IsDataAvailable	1
+uartRingBuffer.c:56:5:Uart_peek	2
+uartRingBuffer.c:70:5:Copy_upto	8
+uartRingBuffer.c:108:5:Wait_for	9

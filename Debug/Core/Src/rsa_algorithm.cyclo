@@ -1,0 +1,5 @@
+rsa_algorithm.c:36:5:prime	3
+rsa_algorithm.c:47:6:ce	8
+rsa_algorithm.c:68:10:cd	2
+rsa_algorithm.c:78:6:encrypt	4
+rsa_algorithm.c:104:6:decrypt	4

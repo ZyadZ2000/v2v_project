@@ -1,0 +1,5 @@
+../Core/Src/rsa_algorithm.c:36:5:prime	24	static
+../Core/Src/rsa_algorithm.c:47:6:ce	16	static
+../Core/Src/rsa_algorithm.c:68:10:cd	24	static
+../Core/Src/rsa_algorithm.c:78:6:encrypt	32	static
+../Core/Src/rsa_algorithm.c:104:6:decrypt	24	static

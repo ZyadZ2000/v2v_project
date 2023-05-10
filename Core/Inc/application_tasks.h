@@ -7,7 +7,7 @@
 #include "queue.h"
 #include "semphr.h"
 
-#define  SS_VELOCITY_THRESHOLD  -10
+#define  SS_VELOCITY_THRESHOLD  -1000.0
 
 void Task_speedCalculation(void *parameters);
 void Task_sendMessage(void *parameters);

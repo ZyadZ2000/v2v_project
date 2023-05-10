@@ -1,6 +1,6 @@
 ../Core/Src/application_tasks.c:48:6:Task_sendMessage	16	static
 ../Core/Src/application_tasks.c:65:6:Task_handleReceivedMessage	56	static
-../Core/Src/application_tasks.c:165:6:Task_speedCalculation	24	static
-../Core/Src/application_tasks.c:198:6:Task_readingGPS	136	static
-../Core/Src/application_tasks.c:300:6:Task_directionOfCar	16	static
-../Core/Src/application_tasks.c:325:6:Task_controlCar	24	static
+../Core/Src/application_tasks.c:165:6:Task_speedCalculation	32	static
+../Core/Src/application_tasks.c:212:6:Task_readingGPS	136	static
+../Core/Src/application_tasks.c:314:6:Task_directionOfCar	16	static
+../Core/Src/application_tasks.c:339:6:Task_controlCar	24	static

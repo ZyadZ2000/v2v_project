@@ -1,6 +1,6 @@
 #include "interrupts_callback.h"
 
-extern volatile uint16_t Global_u16SlitCount;
+extern volatile uint16_t slit_count;
 
 extern xSemaphoreHandle send_message_semaphore;
 extern xSemaphoreHandle receive_message_semaphore;
@@ -47,7 +47,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	if (GPIO_Pin == GPIO_PIN_0) {
-		Global_u16SlitCount++;
+		slit_count++;
 	}
 }
 

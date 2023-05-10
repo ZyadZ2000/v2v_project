@@ -127,7 +127,7 @@ void CLCD_voidDisplayClear(void)
 	DataPins.Pins = 0b0001;
 	CLCD_voidSendCommand(DataPins);
 
-	DELAY_MS(5);
+	DELAY_MS(20);
 
 }
 
@@ -151,6 +151,8 @@ void CLCD_voidSendString(const char *Copy_pcString)
 		CLCD_voidSendData(DataPins);
 
 		Local_u8Counter++;
+
+		DELAY_MS(10);
 	}
 }
 

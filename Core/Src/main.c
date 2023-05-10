@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -79,7 +80,7 @@ xSemaphoreHandle receive_message_semaphore;
 TaskHandle_t send_message_task_handle;
 
 /* Speed Sensor Variables*/
-volatile uint16_t Global_u16SlitCount = 0;
+volatile uint16_t slit_count = 0;
 
 /* GPS variables */
 double my_car_latitude = 0.0;
@@ -150,6 +151,7 @@ void Task_initialization(void *parameters) {
 	CLCD_voidGoToXY(1, 2);
 	CLCD_voidSendString("GP: 2023");
 
+	vTaskDelay(3000 / portTICK_RATE_MS);
 
 #if 0
 	/* Initialize Ring Buffer */
@@ -158,11 +160,6 @@ void Task_initialization(void *parameters) {
 	/* Initialize GPS */
 	GPS_init();
 
-	xTaskCreate(&Task_speedCalculation, "Speed_Calculation", 240, NULL, 3,
-	NULL);
-
-	xTaskCreate(&Task_sendMessage, "Message_Sending", 240, NULL, 6,
-			&send_message_task_handle);
 
 	xTaskCreate(&Task_handleReceivedMessage, "Message_Handling", 240, NULL, 4,
 	NULL);
@@ -173,6 +170,12 @@ void Task_initialization(void *parameters) {
 	xTaskCreate(&Task_directionOfCar, "Car_direction", 240, NULL, 5,
 	NULL);
 #endif
+	xTaskCreate(&Task_speedCalculation, "Speed_Calculation", 240, NULL, 3,
+	NULL);
+
+	xTaskCreate(&Task_sendMessage, "Message_Sending", 240, NULL, 6,
+			&send_message_task_handle);
+
 	xTaskCreate(&Task_controlCar, "Car_Control", 240, NULL, 7,
 	NULL);
 
@@ -330,7 +333,7 @@ static void MX_TIM3_Init(void) {
 
 	/* USER CODE END TIM3_Init 1 */
 	htim3.Instance = TIM3;
-	htim3.Init.Prescaler = 89;
+	htim3.Init.Prescaler = 29;
 	htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim3.Init.Period = 99;
 	htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -385,7 +388,7 @@ static void MX_TIM4_Init(void) {
 
 	/* USER CODE END TIM4_Init 1 */
 	htim4.Instance = TIM4;
-	htim4.Init.Prescaler = 89;
+	htim4.Init.Prescaler = 15;
 	htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim4.Init.Period = 65535;
 	htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -437,7 +440,7 @@ static void MX_TIM12_Init(void) {
 
 	/* USER CODE END TIM12_Init 1 */
 	htim12.Instance = TIM12;
-	htim12.Init.Prescaler = 89;
+	htim12.Init.Prescaler = 29;
 	htim12.Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim12.Init.Period = 99;
 	htim12.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -681,7 +684,6 @@ static void MX_GPIO_Init(void) {
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
-
 
 /**
  * @brief  This function is executed in case of error occurrence.

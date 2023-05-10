@@ -7,7 +7,7 @@
 #include "CLCD_interface.h"
 #include "CAR_CTRL_interface.h"
 
-extern volatile uint16_t Global_u16SlitCount;
+extern volatile uint16_t slit_count;
 
 extern xSemaphoreHandle send_message_semaphore;
 extern xSemaphoreHandle receive_message_semaphore;
@@ -164,34 +164,48 @@ void Task_handleReceivedMessage(void *parameters) {
 
 void Task_speedCalculation(void *parameters) {
 
-	static uint16_t Global_u16PreviousSpeed = 0;
-	int16_t Local_u16DifferSpeed = 0;
-	uint16_t Local_u16CurrentSpeed = 0;
+	uint16_t current_speed = 0;
+	uint16_t previous_speed = 0;
 
-	HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+	int32_t speed_difference = 0;
 
-	vTaskDelay(500 / portTICK_RATE_MS);
+	TickType_t xLastWakeTime;
+
+	taskENTER_CRITICAL();
+
+	slit_count = 0;
+	xLastWakeTime = xTaskGetTickCount();
+
+	taskEXIT_CRITICAL();
 
 	while (1) {
 
-		HAL_NVIC_DisableIRQ(EXTI0_IRQn);
-
-		Local_u16CurrentSpeed = (1.6328 / 2) * Global_u16SlitCount;
-		Local_u16DifferSpeed = Local_u16CurrentSpeed - Global_u16PreviousSpeed;
-
-		if (Local_u16DifferSpeed <= SS_VELOCITY_THRESHOLD) {
-			//Transmit UART Message using DMA
-			taskENTER_CRITICAL();
-			vTaskResume(send_message_task_handle);
-			taskEXIT_CRITICAL();
-		}
-		Global_u16PreviousSpeed = Local_u16CurrentSpeed;
-		Global_u16SlitCount = 0;
+		vTaskDelayUntil(&xLastWakeTime, 500 / portTICK_RATE_MS);
 
 		taskENTER_CRITICAL();
-		HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+
+		/* (1.6328 / 2) = 0.8164 */
+		current_speed = (uint16_t) (0.8164 * slit_count); //In Cm/Sec
+		slit_count = 0;
+
 		taskEXIT_CRITICAL();
-		vTaskDelay(500 / portTICK_RATE_MS);
+
+		speed_difference = current_speed - previous_speed;
+
+		if (speed_difference <= SS_VELOCITY_THRESHOLD) {
+			//Transmit UART Message using DMA
+			taskENTER_CRITICAL();
+			//vTaskResume(send_message_task_handle);
+			CLCD_voidDisplayClear();
+			CLCD_voidGoToXY(0, 0);
+			CLCD_voidSendString("Sending...");
+
+			taskEXIT_CRITICAL();
+		}
+
+		previous_speed = current_speed;
+
+
 	}
 }
 

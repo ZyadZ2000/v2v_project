@@ -198,10 +198,10 @@ void Task_speedCalculation(void *parameters) {
 		if (speed_difference < SS_VELOCITY_THRESHOLD) {
 			//Transmit UART Message using DMA
 			//taskENTER_CRITICAL();
-			//vTaskResume(send_message_task_handle);
-			CLCD_voidDisplayClear();
-			CLCD_voidGoToXY(0, 0);
-			CLCD_voidSendString("Sending...");
+			vTaskResume(send_message_task_handle);
+//			CLCD_voidDisplayClear();
+//			CLCD_voidGoToXY(0, 0);
+//			CLCD_voidSendString("Sending...");
 
 			//taskEXIT_CRITICAL();
 		}

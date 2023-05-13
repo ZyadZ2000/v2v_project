@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -140,6 +139,8 @@ static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN 0 */
 void Task_initialization(void *parameters) {
 
+	uint8_t wifi_ready_signal = 0;
+
 	send_message_semaphore = xSemaphoreCreateBinary();
 	receive_message_semaphore = xSemaphoreCreateBinary();
 	//touchScreen_semaphore = xSemaphoreCreateBinary();
@@ -183,6 +184,20 @@ void Task_initialization(void *parameters) {
 	xTaskCreate(&Task_touchScreen, "Touch_Screen", 240, NULL, 1,
 	NULL);
 #endif
+
+	CLCD_voidDisplayClear();
+	CLCD_voidGoToXY(0, 0);
+	CLCD_voidSendString("Waiting for");
+	CLCD_voidGoToXY(1, 2);
+	CLCD_voidSendString("WIFI");
+
+	while (wifi_ready_signal == 0) {
+		HAL_UART_Receive(&huart1, &wifi_ready_signal,1, 100);
+	}
+
+	CLCD_voidDisplayClear();
+	CLCD_voidGoToXY(0, 0);
+	CLCD_voidSendString("RUNNING");
 
 	vTaskDelete(NULL);
 }

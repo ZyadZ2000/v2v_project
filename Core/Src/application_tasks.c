@@ -7,6 +7,8 @@
 #include "CLCD_interface.h"
 #include "CAR_CTRL_interface.h"
 
+#define CAR_PLATE "CAR123"
+
 extern volatile uint16_t slit_count;
 
 extern xSemaphoreHandle send_message_semaphore;
@@ -15,8 +17,8 @@ extern xSemaphoreHandle touchScreen_semaphore;
 //extern xSemaphoreHandle car_control_semaphore;
 extern TaskHandle_t send_message_task_handle;
 
-extern uint8_t tx_buffer[32];
-extern uint8_t rx_buffer[32];
+extern int8_t tx_buffer[34];
+extern int8_t rx_buffer[34];
 
 extern GPSSTRUCT GGAST;
 extern ring_buffer *_rx_buffer;
@@ -24,6 +26,8 @@ extern ring_buffer *_rx_buffer;
 extern char second_car_latitude[11];
 extern char second_car_longitude[11];
 extern char second_car_direction[8];
+
+extern int8_t car_control_character;
 
 extern double my_car_latitude;
 extern double my_car_longitude;
@@ -50,13 +54,14 @@ void Task_sendMessage(void *parameters) {
 	vTaskSuspend(NULL);
 	while (1) {
 		//Construct the message
-		taskENTER_CRITICAL();
+		//taskENTER_CRITICAL();
 		Build_Msg((char*) tx_buffer, my_car_latitude, my_car_longitude,
 				north_south, east_west, car_direction);
-		taskEXIT_CRITICAL();
+		//taskEXIT_CRITICAL();
 
-		HAL_UART_Transmit_DMA(&huart1, tx_buffer, 32);
+		HAL_UART_Transmit_DMA(&huart1, (uint8_t*) tx_buffer, 34);
 		__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+
 		vTaskSuspend(NULL);
 		xSemaphoreTake(send_message_semaphore, portMAX_DELAY);
 	}
@@ -65,66 +70,102 @@ void Task_sendMessage(void *parameters) {
 void Task_handleReceivedMessage(void *parameters) {
 	//Receive the message
 	unsigned int i, j;
+	char message_start = 0;
+	char received_plate[7] = { 0 };
 	double message_latitude, message_longitude, message_direction;
 	double distance_calculation, bearing_difference;
 	xSemaphoreTake(receive_message_semaphore, 0);
-	HAL_UART_Receive_DMA(&huart1, rx_buffer, 32);
-	__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+	HAL_UART_Receive_IT(&huart1, &message_start, 1);
 	while (1) {
 		xSemaphoreTake(receive_message_semaphore, portMAX_DELAY);
-		//rx_buffer contains message
-		//Extract up to N for latitude, up to E for longitude
-		i = 1, j = 0;
-		while (i < 30 && rx_buffer[i] != 'N' && rx_buffer[i] != 'S' && j < 11) {
-			second_car_latitude[j] = rx_buffer[i];
-			i++;
-			j++;
+		switch (message_start) {
+		case '#':
+			HAL_UART_Receive_DMA(&huart1, rx_buffer, 33);
+			__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+			xSemaphoreTake(receive_message_semaphore, portMAX_DELAY);
+			//rx_buffer contains message
+			//Extract up to N for latitude, up to E for longitude
+			i = 0, j = 0;
+			while (i < 30 && rx_buffer[i] != 'N' && rx_buffer[i] != 'S'
+					&& j < 11) {
+				second_car_latitude[j] = rx_buffer[i];
+				i++;
+				j++;
+			}
+			second_car_latitude[j] = '\0';
+			i++;         //no need for NS
+			j = 0;
+
+			while (i < 30 && rx_buffer[i] != 'E' && rx_buffer[i] != 'W'
+					&& j < 11) {
+				second_car_longitude[j] = rx_buffer[i];
+				i++;
+				j++;
+			}
+			second_car_longitude[j] = '\0';
+			i++;          //no need for EW
+			j = 0;
+
+			while (i < 30 && rx_buffer[i] != '#' && j < 8) {
+				second_car_direction[j] = rx_buffer[i];
+				i++;
+				j++;
+			}
+			second_car_direction[j] = '\0';
+
+			message_latitude = atof(second_car_latitude);
+			message_longitude = atof(second_car_longitude);
+			message_direction = atof(second_car_direction);
+
+			//bearing_difference
+			bearing_difference = fabs(message_direction - car_direction);
+
+			CLCD_voidDisplayClear();
+
+			CLCD_voidWriteSpeacialChar(Upper_Left, 0, 0, 13);
+			CLCD_voidWriteSpeacialChar(Upper_Mid, 1, 0, 14);
+			CLCD_voidWriteSpeacialChar(Upper_Right, 2, 0, 15);
+
+			CLCD_voidWriteSpeacialChar(Lower_Left, 3, 1, 13);
+			CLCD_voidWriteSpeacialChar(Lower_Mid, 4, 1, 14);
+			CLCD_voidWriteSpeacialChar(Lower_Right, 5, 1, 15);
+
+			CLCD_voidGoToXY(0, 0);
+
+			CLCD_voidSendString("Warning: Car");
+
+			CLCD_voidGoToXY(1, 2);
+
+			CLCD_voidSendString("In Front");
+			break;
+		case '!':
+			HAL_UART_Receive_DMA(&huart1, rx_buffer, 10); //!CAR123!\r\n\0
+			__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+			xSemaphoreTake(receive_message_semaphore, portMAX_DELAY);
+			i = 0;
+			while (rx_buffer[i] != '!' && i < 6) {
+				received_plate[i] = rx_buffer[i];
+				i++;
+			}
+			received_plate[i] = '\0';
+			if (strcmp(received_plate, CAR_PLATE) == 0) {
+				/* Decrease The Speed Gradually */
+				if ((TIM3->CCR1) >= 10) {
+					TIM3->CCR1 -= 1;
+					TIM12->CCR1 -= 1;
+				}
+				/* Stop The RC Car */
+				else {
+					TIM3->CCR1 = 0;
+					TIM12->CCR1 = 0;
+				}
+			}
+			break;
+		default:
+			continue;
 		}
-		second_car_latitude[j] = '\0';
-		i++;         //no need for NS
-		j = 0;
 
-		while (i < 30 && rx_buffer[i] != 'E' && rx_buffer[i] != 'W' && j < 11) {
-			second_car_longitude[j] = rx_buffer[i];
-			i++;
-			j++;
-		}
-		second_car_longitude[j] = '\0';
-		i++;          //no need for EW
-		j = 0;
-
-		while (i < 30 && rx_buffer[i] != '#' && j < 8) {
-			second_car_direction[j] = rx_buffer[i];
-			i++;
-			j++;
-		}
-		second_car_direction[j] = '\0';
-
-		message_latitude = atof(second_car_latitude);
-		message_longitude = atof(second_car_longitude);
-		message_direction = atof(second_car_direction);
-
-		//bearing_difference
-		bearing_difference = fabs(message_direction - car_direction);
-
-		CLCD_voidDisplayClear();
-
-		CLCD_voidWriteSpeacialChar(Upper_Left, 0, 0, 13);
-		CLCD_voidWriteSpeacialChar(Upper_Mid, 1, 0, 14);
-		CLCD_voidWriteSpeacialChar(Upper_Right, 2, 0, 15);
-
-		CLCD_voidWriteSpeacialChar(Lower_Left, 3, 1, 13);
-		CLCD_voidWriteSpeacialChar(Lower_Mid, 4, 1, 14);
-		CLCD_voidWriteSpeacialChar(Lower_Right, 5, 1, 15);
-
-		CLCD_voidGoToXY(0, 0);
-
-		CLCD_voidSendString("Warning: Car");
-
-		CLCD_voidGoToXY(1, 2);
-
-		CLCD_voidSendString("In Front");
-
+		HAL_UART_Receive_IT(&huart1, &message_start, 1);
 #if 0
 		if (bearing_difference < 45 || bearing_difference > 135) {
 			//moving in same direction
@@ -157,8 +198,6 @@ void Task_handleReceivedMessage(void *parameters) {
 			}
 		}
 #endif
-		HAL_UART_Receive_DMA(&huart1, rx_buffer, 32);
-		__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
 	}
 }
 
@@ -198,7 +237,9 @@ void Task_speedCalculation(void *parameters) {
 		if (speed_difference < SS_VELOCITY_THRESHOLD) {
 			//Transmit UART Message using DMA
 			//taskENTER_CRITICAL();
+			HAL_NVIC_DisableIRQ(EXTI0_IRQn);
 			vTaskResume(send_message_task_handle);
+			HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 //			CLCD_voidDisplayClear();
 //			CLCD_voidGoToXY(0, 0);
 //			CLCD_voidSendString("Sending...");
@@ -336,24 +377,26 @@ void Task_directionOfCar(void *parameters) {
 
 }
 
+/*
+ * f b r l s
+ * !CAR222!
+ * */
 void Task_controlCar(void *parameters) {
-
-	uint8_t Local_u8Received_data = 0;
 
 	TickType_t xLastWakeTime;
 
 	xLastWakeTime = xTaskGetTickCount();
 
 	while (1) {
-		Local_u8Received_data = 0;
+		car_control_character  = 0;
 
-		HAL_UART_Receive_IT(&huart4, &Local_u8Received_data, 1);
+		//HAL_UART_Receive_IT(&huart4, &Local_u8Received_data, 1);
 
 		vTaskDelayUntil(&xLastWakeTime, 100 / portTICK_RATE_MS);
 
-		if (Local_u8Received_data != 'f' && Local_u8Received_data != 'b'
-				&& Local_u8Received_data != 'l' && Local_u8Received_data != 'r'
-				&& Local_u8Received_data != 's') {
+		if (car_control_character != 'f' && car_control_character != 'b'
+				&& car_control_character != 'l' && car_control_character != 'r'
+				&& car_control_character != 's') {
 			/* Decrease The Speed Gradually */
 			if ((TIM3->CCR1) >= 10) {
 				TIM3->CCR1 -= 1;
@@ -371,15 +414,15 @@ void Task_controlCar(void *parameters) {
 			TIM12->CCR1 = 75;
 
 			/* Direction Change According To The Received Direction */
-			if (Local_u8Received_data == 'f')
+			if (car_control_character == 'f')
 				HAL_CAR_CTRL_voidForward();
-			else if (Local_u8Received_data == 'b')
+			else if (car_control_character == 'b')
 				HAL_CAR_CTRL_voidBackward();
-			else if (Local_u8Received_data == 'l')
+			else if (car_control_character == 'l')
 				HAL_CAR_CTRL_voidRight();
-			else if (Local_u8Received_data == 'r')
+			else if (car_control_character == 'r')
 				HAL_CAR_CTRL_voidLeft();
-			else if (Local_u8Received_data == 's') {
+			else if (car_control_character == 's') {
 				HAL_CAR_CTRL_voidStop();
 				CLCD_voidDisplayClear();
 			}

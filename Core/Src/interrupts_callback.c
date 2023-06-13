@@ -7,8 +7,13 @@ extern xSemaphoreHandle receive_message_semaphore;
 //extern xSemaphoreHandle touchScreen_semaphore;
 //extern xSemaphoreHandle car_control_semaphore;
 
-extern uint8_t rx_buffer[32];
-extern uint8_t tx_buffer[32];
+extern int8_t rx_buffer[34];
+extern int8_t tx_buffer[34];
+
+extern int8_t bluetooth_received_character;
+extern int8_t car_control_character;
+extern int8_t bluetooth_buffer[9];
+extern int8_t bluetooth_message_index;
 
 extern uint8_t icFlag;
 extern uint32_t edge1Time;
@@ -33,6 +38,24 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 				&xHigherPriorityTaskWoken);
 
 		portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
+	} else if (huart->Instance == UART4) {
+		if (bluetooth_message_index > 0 && bluetooth_message_index < 9) {
+			bluetooth_buffer[bluetooth_message_index] =
+					bluetooth_received_character;
+			if (bluetooth_buffer[bluetooth_message_index] == '!') {
+				bluetooth_buffer[bluetooth_message_index + 1] = '\0';
+				bluetooth_message_index = 0;
+			} else {
+				bluetooth_message_index++;
+			}
+		} else if (bluetooth_received_character == '!') {
+			bluetooth_buffer[bluetooth_message_index] =
+					bluetooth_received_character;
+			bluetooth_message_index++;
+		} else {
+			car_control_character = bluetooth_received_character;
+		}
+		HAL_UART_Receive_IT(&huart4, &bluetooth_received_character, 1);
 	}
 }
 

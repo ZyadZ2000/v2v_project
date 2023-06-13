@@ -1,5 +1,5 @@
 ../Core/Src/NMEA.c:25:5:decodeGGA	80	static
 ../Core/Src/NMEA.c:296:8:StrDeg_To_FloatDec	128	static
-../Core/Src/NMEA.c:338:6:Build_Msg	72	static
-../Core/Src/NMEA.c:394:8:Deg_To_Rad	16	static
-../Core/Src/NMEA.c:398:8:Distance_Calc	128	static
+../Core/Src/NMEA.c:338:6:Build_Msg	80	static
+../Core/Src/NMEA.c:396:8:Deg_To_Rad	16	static
+../Core/Src/NMEA.c:400:8:Distance_Calc	128	static

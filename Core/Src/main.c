@@ -65,11 +65,17 @@ DMA_HandleTypeDef hdma_usart3_rx;
 
 /* USER CODE BEGIN PV */
 /* Message Variables */
-uint8_t rx_buffer[32] = { 0 };
-uint8_t tx_buffer[32] = { 0 };
+int8_t rx_buffer[34] = { 0 };
+int8_t tx_buffer[34] = { 0 };
 char second_car_latitude[11] = { 0 };
 char second_car_longitude[11] = { 0 };
 char second_car_direction[8] = { 0 };
+
+/* Blue-tooth Variables*/
+int8_t bluetooth_message_start = 0;
+int8_t car_control_character = 0;
+int8_t bluetooth_buffer[9] = 0;
+int8_t bluetooth_message_index = 0;
 
 /* RTOS Handles and Semaphores */
 xSemaphoreHandle send_message_semaphore;
@@ -139,7 +145,7 @@ static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN 0 */
 void Task_initialization(void *parameters) {
 
-	uint8_t wifi_ready_signal = 0;
+	int8_t wifi_ready_signal = 0;
 
 	send_message_semaphore = xSemaphoreCreateBinary();
 	receive_message_semaphore = xSemaphoreCreateBinary();
@@ -162,8 +168,6 @@ void Task_initialization(void *parameters) {
 	GPS_init();
 
 
-	xTaskCreate(&Task_handleReceivedMessage, "Message_Handling", 240, NULL, 4,
-	NULL);
 
 	xTaskCreate(&Task_readingGPS, "GPS_Reading", 240, NULL, 2,
 	NULL);
@@ -171,6 +175,9 @@ void Task_initialization(void *parameters) {
 	xTaskCreate(&Task_directionOfCar, "Car_direction", 240, NULL, 5,
 	NULL);
 #endif
+	xTaskCreate(&Task_handleReceivedMessage, "Message_Handling", 240, NULL, 4,
+	NULL);
+
 	xTaskCreate(&Task_speedCalculation, "Speed_Calculation", 240, NULL, 3,
 	NULL);
 
@@ -191,13 +198,17 @@ void Task_initialization(void *parameters) {
 	CLCD_voidGoToXY(1, 2);
 	CLCD_voidSendString("WIFI");
 
-	while (wifi_ready_signal == 0) {
-		HAL_UART_Receive(&huart1, &wifi_ready_signal,1, 100);
-	}
+	/* Simple protocol to make sure the WIFI is ready */
+	do {
+		HAL_UART_Transmit(&huart1, (uint8_t*) "I", 1, 300);
+		HAL_UART_Receive(&huart1, (uint8_t*) &wifi_ready_signal, 1, 300);
+	} while (wifi_ready_signal != 'R');
 
 	CLCD_voidDisplayClear();
 	CLCD_voidGoToXY(0, 0);
 	CLCD_voidSendString("RUNNING");
+
+	HAL_UART_Receive_IT(&huart4, &bluetooth_message_start, 1);
 
 	vTaskDelete(NULL);
 }

@@ -47,11 +47,6 @@ extern DMA_HandleTypeDef hdma_usart1_rx;
 extern DMA_HandleTypeDef hdma_usart1_tx;
 extern DMA_HandleTypeDef hdma_usart3_rx;
 
-/* Touch-Screen Definitions */
-typedef enum {
-	headerState = 0, dataState, screenResponseState
-} receiving_state;
-
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -75,7 +70,8 @@ void Error_Handler(void);
 
 /* Private defines -----------------------------------------------------------*/
 /* USER CODE BEGIN Private defines */
-
+#define BLTH_CAR_CTL_MODE 0
+#define BLTH_MESSAGE_MODE 1
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

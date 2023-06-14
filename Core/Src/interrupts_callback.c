@@ -12,8 +12,7 @@ extern int8_t tx_buffer[34];
 
 extern int8_t bluetooth_received_character;
 extern int8_t car_control_character;
-extern int8_t bluetooth_buffer[9];
-extern int8_t bluetooth_message_index;
+extern int8_t bluetooth_mode;
 
 extern uint8_t icFlag;
 extern uint32_t edge1Time;
@@ -23,15 +22,7 @@ extern uint8_t edgeNumber;
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
 
-	if (huart->Instance == UART5) {
-#if 0
-		NVIC_ClearPendingIRQ(UART5_IRQn);
-
-		xSemaphoreGiveFromISR(touchScreen_semaphore, &xHigherPriorityTaskWoken);
-
-		portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
-#endif
-	} else if (huart->Instance == USART1) {
+	if (huart->Instance == USART1) {
 		NVIC_ClearPendingIRQ(USART1_IRQn);
 
 		xSemaphoreGiveFromISR(receive_message_semaphore,
@@ -39,23 +30,22 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
 		portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
 	} else if (huart->Instance == UART4) {
-		if (bluetooth_message_index > 0 && bluetooth_message_index < 9) {
-			bluetooth_buffer[bluetooth_message_index] =
-					bluetooth_received_character;
-			if (bluetooth_buffer[bluetooth_message_index] == '!') {
-				bluetooth_buffer[bluetooth_message_index + 1] = '\0';
-				bluetooth_message_index = 0;
-			} else {
-				bluetooth_message_index++;
-			}
-		} else if (bluetooth_received_character == '!') {
-			bluetooth_buffer[bluetooth_message_index] =
-					bluetooth_received_character;
-			bluetooth_message_index++;
-		} else {
+		if (bluetooth_received_character == '!')
+			bluetooth_mode = BLTH_MESSAGE_MODE;
+		switch (bluetooth_mode) {
+		case BLTH_MESSAGE_MODE:
+			NVIC_ClearPendingIRQ(USART1_IRQn);
+
+			xSemaphoreGiveFromISR(receive_message_semaphore,
+					&xHigherPriorityTaskWoken);
+
+			portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
+			break;
+		case BLTH_CAR_CTL_MODE:
 			car_control_character = bluetooth_received_character;
+			HAL_UART_Receive_IT(&huart4, &bluetooth_received_character, 1);
+			break;
 		}
-		HAL_UART_Receive_IT(&huart4, &bluetooth_received_character, 1);
 	}
 }
 

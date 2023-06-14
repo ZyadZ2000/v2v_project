@@ -14,7 +14,7 @@ extern volatile uint16_t slit_count;
 extern xSemaphoreHandle send_message_semaphore;
 extern xSemaphoreHandle receive_message_semaphore;
 extern xSemaphoreHandle touchScreen_semaphore;
-//extern xSemaphoreHandle car_control_semaphore;
+extern xSemaphoreHandle bluetooth_message_semaphore;
 extern TaskHandle_t send_message_task_handle;
 
 extern int8_t tx_buffer[34];
@@ -48,6 +48,9 @@ extern receiving_state current_screen_frame;
 extern uint8_t HeaderFrame[7];
 extern uint8_t DataFrame[20];
 extern uint8_t arrested_car[20];
+
+extern int8_t bluetooth_mode;
+extern int8_t bluetooth_received_character;
 
 void Task_sendMessage(void *parameters) {
 	xSemaphoreTake(send_message_semaphore, 0);
@@ -388,7 +391,7 @@ void Task_controlCar(void *parameters) {
 	xLastWakeTime = xTaskGetTickCount();
 
 	while (1) {
-		car_control_character  = 0;
+		car_control_character = 0;
 
 		//HAL_UART_Receive_IT(&huart4, &Local_u8Received_data, 1);
 
@@ -429,146 +432,30 @@ void Task_controlCar(void *parameters) {
 		}
 
 	}
-#if 0
-	while (1) {
-		/* Initialize buffer Variable To Hold Received Char */
-		Local_u8Received_data = 0;
-		if (HAL_UART_Receive(&huart4, &Local_u8Received_data, 1, 100)
-				== HAL_OK) {
-
-			/* Return To The Normal Speed */
-			TIM3->CCR1 = 75;
-			TIM12->CCR1 = 75;
-
-			/* Direction Change According To The Received Direction */
-			if (Local_u8Received_data == 'f')
-				HAL_CAR_CTRL_voidForward();
-			else if (Local_u8Received_data == 'b')
-				HAL_CAR_CTRL_voidBackward();
-			else if (Local_u8Received_data == 'l')
-				HAL_CAR_CTRL_voidRight();
-			else if (Local_u8Received_data == 'r')
-				HAL_CAR_CTRL_voidLeft();
-			else if (Local_u8Received_data == 's') {
-				HAL_CAR_CTRL_voidStop();
-				CLCD_voidDisplayClear();
-			}
-
-		} else {
-			/* Decrease The Speed Gradually */
-			if ((TIM3->CCR1) >= 10) {
-				TIM3->CCR1 -= 1;
-				TIM12->CCR1 -= 1;
-
-				//pwm.CCR1 -= 10;
-			}
-			/* Stop The RC Car */
-			else {
-				TIM3->CCR1 = 0;
-				TIM12->CCR1 = 0;
-				//pwm.CCR1 = 0;
-			}
-		}
-
-		vTaskDelay(100 / portTICK_RATE_MS);
-
-
-	}
-#endif
 
 }
 
-#if 0
-void Task_touchScreen(void *parameters) {
+void Task_arrestMessageHandler(void *parameters) {
+	int8_t arrest_message_buffer[11] = 0;
+	xSemaphoreTake(bluetooth_message_semaphore, 0);
 
-	int i = 0;
-
-	uint8_t switch_to_Send_page[11] = { 0x5A, 0xA5, 0X07, 0X82, 0X00, 0X84,
-			0X5A, 0X01, 0X00, 0X03, '\0' };
-
-	xSemaphoreTake(touchScreen_semaphore, 0);
-	HAL_UART_Receive_IT(&huart5, &screen_character_recieved, 1);
+	/* Start receiving from UART4 which is connected to the blue-tooth */
+	HAL_UART_Receive_IT(&huart4, &bluetooth_received_character, 1);
 
 	while (1) {
-		xSemaphoreTake(touchScreen_semaphore, portMAX_DELAY);
-
-		HAL_UART_Receive_IT(&huart5, &screen_character_recieved, 1);
-
-		switch (current_screen_frame) {
-
-		case headerState:
-			if (screen_character_recieved != 0xFF) {
-				HeaderFrame[screen_index] = screen_character_recieved;
-				screen_index++;
-				if (screen_index == 7) {
-					current_screen_frame = dataState;
-					screen_index = 0;
-				}
-			}
-			break;
-		case dataState:
-			if (screen_character_recieved != 0xFF && screen_index < 20) {
-				DataFrame[screen_index] = screen_character_recieved;
-				screen_index++;
-			} else {
-				DataFrame[screen_index] = '\0';
-				screen_index = 0;
-				current_screen_frame = headerState;
-				if (HeaderFrame[4] == 0x55) {
-					/* Dataframe contains username to validate */
-				} else if (HeaderFrame[4] == 0x57) {
-					/* Dataframe contains password to validate */
-				} else if (HeaderFrame[5] == 0x01) {
-					/*	if (usernameFlag && PassFlag) {
-					 switch_to_Send_page[9] = 0X03;
-					 current_screen_frame = screenResponseState;
-					 HAL_UART_Transmit_IT(&huart5, switch_to_Send_page,
-					 sizeof(switch_to_Send_page), 100);
-					 } else {
-					 switch_to_Send_page[9] = 0X04;
-					 current_screen_frame = screenResponseState;
-					 HAL_UART_Transmit_IT(&huart5, switch_to_Send_page,
-					 sizeof(switch_to_Send_page), 100);
-					 }*/
-				} else if (HeaderFrame[4] == 0x59) {
-					for (i = 0; DataFrame[i] != '\0'; i++) {
-						arrested_car[i] = DataFrame[i];
-					}
-					arrested_car[i] = '\0';
-
-				} else if (HeaderFrame[5] == 0x05) {
-					/*		long int encrypted_message[100] = { '\0' };
-					 long int message_to_send[10] = { '\0' };
-					 char public_key_msg[7] = { '\0' };
-					 char final_message[10] = { '\0' };
-					 generate_primes(&p, &q);
-					 n = p * q;
-					 t = (p - 1) * (q - 1);
-					 // Calculate e and d
-					 ce();
-					 // Encrypt the message
-					 encrypt(arrested_car, d[0], encrypted_message);
-					 buid_publickey(e[0], public_key_msg);
-					 HAL_UART_Transmit(&huart1, public_key_msg,
-					 sizeof(public_key_msg), 100);
-
-					 buid_encrypted_message(encrypted_message, message_to_send);
-					 translate_from_longint_char(message_to_send, final_message);
-					 HAL_UART_Transmit(&huart1, final_message,
-					 sizeof(final_message), 100);
-					 */
-				}
-			}
-			break;
-#if 0
-		case screenResponseState:
-			if (screen_character_recieved == 0x4B) {
-				current_screen_frame = headerState;
-			}
-			break;
-#endif
+		xSemaphoreTake(bluetooth_message_semaphore, portMAX_DELAY);
+		arrest_message_buffer[0] = bluetooth_received_character;
+		HAL_UART_Receive_DMA(&huart4, *(arrest_message_buffer + 1), 7);
+		__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+		xSemaphoreTake(bluetooth_message_semaphore, (1000 / portTICK_RATE_MS));
+		if(arrest_message_buffer[7] == '!'){
+			arrest_message_buffer[8] = '\r';
+			arrest_message_buffer[9] = '\n';
+			arrest_message_buffer[10] = '\0';
+			HAL_UART_Transmit_DMA(&huart4, *(arrest_message_buffer + 1), 7);
+			__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
 		}
+		bluetooth_mode = BLTH_CAR_CTL_MODE;
+		HAL_UART_Receive_IT(&huart4, &bluetooth_received_character, 1);
 	}
-
 }
-#endif

@@ -64,6 +64,7 @@ DMA_HandleTypeDef hdma_usart1_tx;
 DMA_HandleTypeDef hdma_usart3_rx;
 
 /* USER CODE BEGIN PV */
+
 /* Message Variables */
 int8_t rx_buffer[34] = { 0 };
 int8_t tx_buffer[34] = { 0 };
@@ -72,16 +73,16 @@ char second_car_longitude[11] = { 0 };
 char second_car_direction[8] = { 0 };
 
 /* Blue-tooth Variables*/
-int8_t bluetooth_message_start = 0;
+int8_t bluetooth_received_character = 0;
 int8_t car_control_character = 0;
-int8_t bluetooth_buffer[9] = 0;
-int8_t bluetooth_message_index = 0;
+int8_t bluetooth_mode = BLTH_CAR_CTL_MODE;
+
 
 /* RTOS Handles and Semaphores */
 xSemaphoreHandle send_message_semaphore;
 xSemaphoreHandle receive_message_semaphore;
-//xSemaphoreHandle touchScreen_semaphore;
-//xSemaphoreHandle car_control_semaphore;
+xSemaphoreHandle bluetooth_message_semaphore;
+
 TaskHandle_t send_message_task_handle;
 
 /* Speed Sensor Variables*/
@@ -110,19 +111,6 @@ uint8_t Lower_Right[8] = { 0x01, 0x01, 0x01, 0x02, 0x04, 0x08, 0x10, 0x00 };
 uint8_t Lower_Mid[8] = { 0x04, 0x04, 0x04, 0x04, 0x0E, 0x00, 0x00, 0x1F };
 uint8_t Upper_Mid[8] = { 0x1F, 0x00, 0x00, 0x00, 0x04, 0x00, 0x0C, 0x04 };
 
-#if 0
-/* Touch-Screen Variables */
-uint8_t screen_character_recieved;
-
-uint8_t screen_index = 0;
-
-receiving_state current_screen_frame = headerState;
-
-uint8_t HeaderFrame[7] = { 0 };
-uint8_t DataFrame[20] = { 0 };
-uint8_t arrested_car[20] = { 0 };
-
-#endif
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -143,15 +131,16 @@ static void MX_USART3_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
 void Task_initialization(void *parameters) {
 
 	int8_t wifi_ready_signal = 0;
 
+	/* Initialize the semaphores */
 	send_message_semaphore = xSemaphoreCreateBinary();
 	receive_message_semaphore = xSemaphoreCreateBinary();
-	//touchScreen_semaphore = xSemaphoreCreateBinary();
-	//car_control_semaphore = xSemaphoreCreateBinary();
-
+	bluetooth_message_semaphore = xSemaphoreCreateBinary();
+	/* Print the welcome message on the LCD */
 	CLCD_voidInit();
 	CLCD_voidGoToXY(0, 0);
 	CLCD_voidSendString("WELCOME TO V2X");
@@ -178,19 +167,17 @@ void Task_initialization(void *parameters) {
 	xTaskCreate(&Task_handleReceivedMessage, "Message_Handling", 240, NULL, 4,
 	NULL);
 
-	xTaskCreate(&Task_speedCalculation, "Speed_Calculation", 240, NULL, 3,
+	xTaskCreate(&Task_speedCalculation, "Speed_Calculation", 240, NULL, 4,
 	NULL);
 
 	xTaskCreate(&Task_sendMessage, "Message_Sending", 240, NULL, 6,
 			&send_message_task_handle);
 
-	xTaskCreate(&Task_controlCar, "Car_Control", 240, NULL, 7,
+	xTaskCreate(&Task_arrestMessageHandler, "Bluetooth", 240, NULL, 3,
 	NULL);
 
-#if 0
-	xTaskCreate(&Task_touchScreen, "Touch_Screen", 240, NULL, 1,
+	xTaskCreate(&Task_controlCar, "Car_Control", 240, NULL, 7,
 	NULL);
-#endif
 
 	CLCD_voidDisplayClear();
 	CLCD_voidGoToXY(0, 0);
@@ -198,8 +185,9 @@ void Task_initialization(void *parameters) {
 	CLCD_voidGoToXY(1, 2);
 	CLCD_voidSendString("WIFI");
 
-	/* Simple protocol to make sure the WIFI is ready */
+	/* Make sure the WIFI is ready */
 	do {
+		/* Send the character 'I' and wait until the WIFI responds with 'R' */
 		HAL_UART_Transmit(&huart1, (uint8_t*) "I", 1, 300);
 		HAL_UART_Receive(&huart1, (uint8_t*) &wifi_ready_signal, 1, 300);
 	} while (wifi_ready_signal != 'R');
@@ -208,8 +196,7 @@ void Task_initialization(void *parameters) {
 	CLCD_voidGoToXY(0, 0);
 	CLCD_voidSendString("RUNNING");
 
-	HAL_UART_Receive_IT(&huart4, &bluetooth_message_start, 1);
-
+	/* Delete the initialization task to start running other tasks */
 	vTaskDelete(NULL);
 }
 /* USER CODE END 0 */
@@ -242,16 +229,20 @@ int main(void) {
 	/* Initialize all configured peripherals */
 	MX_GPIO_Init();
 	MX_DMA_Init();
-	MX_USART1_UART_Init();
 	MX_TIM3_Init();
 	MX_TIM4_Init();
 	MX_TIM12_Init();
+	MX_USART1_UART_Init();
+	MX_USART3_UART_Init();
 	MX_UART4_Init();
 	MX_UART5_Init();
-	MX_USART3_UART_Init();
+
 	/* USER CODE BEGIN 2 */
+
+	// Timer PWM for the car motor
 	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 	HAL_TIM_PWM_Start(&htim12, TIM_CHANNEL_1);
+
 	/* USER CODE END 2 */
 
 	/* USER CODE BEGIN RTOS_MUTEX */

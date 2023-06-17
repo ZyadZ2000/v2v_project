@@ -59,6 +59,8 @@ UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart5;
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart3;
+DMA_HandleTypeDef hdma_uart4_rx;
+DMA_HandleTypeDef hdma_uart4_tx;
 DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart1_tx;
 DMA_HandleTypeDef hdma_usart3_rx;
@@ -68,6 +70,7 @@ DMA_HandleTypeDef hdma_usart3_rx;
 /* Message Variables */
 int8_t rx_buffer[34] = { 0 };
 int8_t tx_buffer[34] = { 0 };
+int8_t arrest_message_buffer[11] = { 0 };
 char second_car_latitude[11] = { 0 };
 char second_car_longitude[11] = { 0 };
 char second_car_direction[8] = { 0 };
@@ -76,7 +79,6 @@ char second_car_direction[8] = { 0 };
 int8_t bluetooth_received_character = 0;
 int8_t car_control_character = 0;
 int8_t bluetooth_mode = BLTH_CAR_CTL_MODE;
-
 
 /* RTOS Handles and Semaphores */
 xSemaphoreHandle send_message_semaphore;
@@ -111,6 +113,8 @@ uint8_t Lower_Right[8] = { 0x01, 0x01, 0x01, 0x02, 0x04, 0x08, 0x10, 0x00 };
 uint8_t Lower_Mid[8] = { 0x04, 0x04, 0x04, 0x04, 0x0E, 0x00, 0x00, 0x1F };
 uint8_t Upper_Mid[8] = { 0x1F, 0x00, 0x00, 0x00, 0x04, 0x00, 0x0C, 0x04 };
 
+int8_t message_sending_mode = WARNING_MSG_MODE;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -135,11 +139,12 @@ static void MX_USART3_UART_Init(void);
 void Task_initialization(void *parameters) {
 
 	int8_t wifi_ready_signal = 0;
+	uint8_t wifi_timeout_count = 0;
 
-	/* Initialize the semaphores */
-	send_message_semaphore = xSemaphoreCreateBinary();
-	receive_message_semaphore = xSemaphoreCreateBinary();
-	bluetooth_message_semaphore = xSemaphoreCreateBinary();
+	// Timer PWM for the car motor
+	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Start(&htim12, TIM_CHANNEL_1);
+
 	/* Print the welcome message on the LCD */
 	CLCD_voidInit();
 	CLCD_voidGoToXY(0, 0);
@@ -148,6 +153,45 @@ void Task_initialization(void *parameters) {
 	CLCD_voidSendString("GP: 2023");
 
 	vTaskDelay(3000 / portTICK_RATE_MS);
+
+	while ((USART1->SR & USART_SR_RXNE) != 0)
+	{
+	    uint8_t dummy = USART1->DR; // Read and discard received data
+	    (void)dummy; // Avoid compiler warnings
+	}
+
+	HAL_UART_Transmit(&huart1, (uint8_t*) "I", 1, 15000);
+
+	HAL_UART_Receive(&huart1, (uint8_t*) &wifi_ready_signal, 1,15000);
+
+//	CLCD_voidDisplayClear();
+//	CLCD_voidGoToXY(0, 0);
+//	CLCD_voidSendString("Waiting for");
+//	CLCD_voidGoToXY(1, 2);
+//	CLCD_voidSendString("WIFI");
+//
+//	vTaskDelay(1000 / portTICK_RATE_MS);
+//
+//	while (wifi_ready_signal == 0 && wifi_timeout_count < 8) {
+//		wifi_timeout_count++;
+//		vTaskDelay(3000 / portTICK_RATE_MS);
+//	}
+
+	if (wifi_ready_signal == 0) {
+		CLCD_voidDisplayClear();
+		CLCD_voidGoToXY(0, 0);
+		CLCD_voidSendString("NO WIFI");
+	} else {
+		CLCD_voidDisplayClear();
+		CLCD_voidGoToXY(0, 0);
+		CLCD_voidSendString("RUNNING");
+
+	}
+
+	/* Initialize the semaphores */
+	send_message_semaphore = xSemaphoreCreateBinary();
+	receive_message_semaphore = xSemaphoreCreateBinary();
+	bluetooth_message_semaphore = xSemaphoreCreateBinary();
 
 #if 0
 	/* Initialize Ring Buffer */
@@ -179,26 +223,21 @@ void Task_initialization(void *parameters) {
 	xTaskCreate(&Task_controlCar, "Car_Control", 240, NULL, 7,
 	NULL);
 
-	CLCD_voidDisplayClear();
-	CLCD_voidGoToXY(0, 0);
-	CLCD_voidSendString("Waiting for");
-	CLCD_voidGoToXY(1, 2);
-	CLCD_voidSendString("WIFI");
+	// HAL_UART_Transmit_DMA(&huart1, (uint8_t*) "I", 1);
 
-	/* Make sure the WIFI is ready */
-	do {
-		/* Send the character 'I' and wait until the WIFI responds with 'R' */
-		HAL_UART_Transmit(&huart1, (uint8_t*) "I", 1, 300);
-		HAL_UART_Receive(&huart1, (uint8_t*) &wifi_ready_signal, 1, 300);
-	} while (wifi_ready_signal != 'R');
+	// HAL_UART_Receive_IT(&huart1, (uint8_t*) &wifi_ready_signal, 1);
 
-	CLCD_voidDisplayClear();
-	CLCD_voidGoToXY(0, 0);
-	CLCD_voidSendString("RUNNING");
+//	/* Make sure the WIFI is ready */
+//	do {
+//		/* Send the character 'I' and wait until the WIFI responds with 'R' */
+//		HAL_UART_Transmit(&huart1, (uint8_t*) "I", 1, 600);
+//		HAL_UART_Receive(&huart1, (uint8_t*) &wifi_ready_signal, 1, 600);
+//	} while (wifi_ready_signal != 'R');
 
 	/* Delete the initialization task to start running other tasks */
 	vTaskDelete(NULL);
 }
+
 /* USER CODE END 0 */
 
 /**
@@ -229,19 +268,14 @@ int main(void) {
 	/* Initialize all configured peripherals */
 	MX_GPIO_Init();
 	MX_DMA_Init();
+	MX_USART1_UART_Init();
 	MX_TIM3_Init();
 	MX_TIM4_Init();
 	MX_TIM12_Init();
-	MX_USART1_UART_Init();
-	MX_USART3_UART_Init();
 	MX_UART4_Init();
 	MX_UART5_Init();
-
+	MX_USART3_UART_Init();
 	/* USER CODE BEGIN 2 */
-
-	// Timer PWM for the car motor
-	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-	HAL_TIM_PWM_Start(&htim12, TIM_CHANNEL_1);
 
 	/* USER CODE END 2 */
 
@@ -624,6 +658,12 @@ static void MX_DMA_Init(void) {
 	/* DMA1_Stream1_IRQn interrupt configuration */
 	HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 5, 0);
 	HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
+	/* DMA1_Stream2_IRQn interrupt configuration */
+	HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 5, 0);
+	HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
+	/* DMA1_Stream4_IRQn interrupt configuration */
+	HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 5, 0);
+	HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
 	/* DMA2_Stream2_IRQn interrupt configuration */
 	HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 5, 0);
 	HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
@@ -701,6 +741,26 @@ static void MX_GPIO_Init(void) {
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
+
+/**
+ * @brief  Period elapsed callback in non blocking mode
+ * @note   This function is called  when TIM1 interrupt took place, inside
+ * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+ * a global variable "uwTick" used as application time base.
+ * @param  htim : TIM handle
+ * @retval None
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	/* USER CODE BEGIN Callback 0 */
+
+	/* USER CODE END Callback 0 */
+	if (htim->Instance == TIM1) {
+		HAL_IncTick();
+	}
+	/* USER CODE BEGIN Callback 1 */
+
+	/* USER CODE END Callback 1 */
+}
 
 /**
  * @brief  This function is executed in case of error occurrence.

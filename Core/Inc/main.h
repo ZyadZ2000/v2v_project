@@ -43,6 +43,8 @@ extern UART_HandleTypeDef huart1;
 extern UART_HandleTypeDef huart3;
 extern UART_HandleTypeDef huart4;
 extern UART_HandleTypeDef huart5;
+extern DMA_HandleTypeDef hdma_uart4_rx;
+extern DMA_HandleTypeDef hdma_uart4_tx;
 extern DMA_HandleTypeDef hdma_usart1_rx;
 extern DMA_HandleTypeDef hdma_usart1_tx;
 extern DMA_HandleTypeDef hdma_usart3_rx;
@@ -70,8 +72,13 @@ void Error_Handler(void);
 
 /* Private defines -----------------------------------------------------------*/
 /* USER CODE BEGIN Private defines */
+#define CAR_PLATE "CAR123"
+
 #define BLTH_CAR_CTL_MODE 0
 #define BLTH_MESSAGE_MODE 1
+
+#define WARNING_MSG_MODE 0
+#define ARREST_MSG_MODE 1
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

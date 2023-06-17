@@ -1,6 +1,7 @@
-application_tasks.c:48:6:Task_sendMessage	1
-application_tasks.c:66:6:Task_handleReceivedMessage	12
-application_tasks.c:166:6:Task_speedCalculation	2
-application_tasks.c:215:6:Task_readingGPS	7
-application_tasks.c:317:6:Task_directionOfCar	1
-application_tasks.c:342:6:Task_controlCar	12
+application_tasks.c:50:6:Task_sendMessage	3
+application_tasks.c:73:6:Task_handleReceivedMessage	18
+application_tasks.c:205:6:Task_speedCalculation	2
+application_tasks.c:254:6:Task_readingGPS	7
+application_tasks.c:356:6:Task_directionOfCar	1
+application_tasks.c:385:6:Task_controlCar	12
+application_tasks.c:436:6:Task_arrestMessageHandler	2

@@ -345,9 +345,9 @@ void Build_Msg(char *msg, double lat, double longt, char NS, char EW,
 	//longt = longt *100;
 
 	// from double to string
-	sprintf(lattiude, "%.6f", lat);
-	sprintf(longtiude, "%.6f", longt);
-	sprintf(direction_string, "%.3f", direction);
+	snprintf(lattiude,11, "%.6f", lat);
+	snprintf(longtiude,11, "%.6f", longt);
+	snprintf(direction_string,8, "%.3f", direction);
 
 	msg[0] = '#';
 	msg[1] = lattiude[0];
@@ -382,7 +382,9 @@ void Build_Msg(char *msg, double lat, double longt, char NS, char EW,
 	msg[28] = direction_string[5];
 	msg[29] = direction_string[6];
 	msg[30] = '#';
-	msg[31] = '\0';
+	msg[31] = '\r';
+	msg[32] = '\n';
+	msg[33] = '\0';
 
 	/*3003.95734N3116.64210E# is the message
 	 * first 10 chars is lattiude N

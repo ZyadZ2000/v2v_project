@@ -6,8 +6,7 @@
 #include <math.h>
 #include "CLCD_interface.h"
 #include "CAR_CTRL_interface.h"
-
-#define CAR_PLATE "CAR123"
+#include <string.h>
 
 extern volatile uint16_t slit_count;
 
@@ -19,6 +18,7 @@ extern TaskHandle_t send_message_task_handle;
 
 extern int8_t tx_buffer[34];
 extern int8_t rx_buffer[34];
+extern int8_t arrest_message_buffer[11];
 
 extern GPSSTRUCT GGAST;
 extern ring_buffer *_rx_buffer;
@@ -42,29 +42,29 @@ extern uint8_t Lower_Right[8];
 extern uint8_t Lower_Mid[8];
 extern uint8_t Upper_Mid[8];
 
-extern uint8_t screen_character_recieved;
-extern uint8_t screen_index;
-extern receiving_state current_screen_frame;
-extern uint8_t HeaderFrame[7];
-extern uint8_t DataFrame[20];
-extern uint8_t arrested_car[20];
-
 extern int8_t bluetooth_mode;
 extern int8_t bluetooth_received_character;
+
+extern int8_t message_sending_mode;
 
 void Task_sendMessage(void *parameters) {
 	xSemaphoreTake(send_message_semaphore, 0);
 	vTaskSuspend(NULL);
 	while (1) {
-		//Construct the message
-		//taskENTER_CRITICAL();
-		Build_Msg((char*) tx_buffer, my_car_latitude, my_car_longitude,
-				north_south, east_west, car_direction);
-		//taskEXIT_CRITICAL();
+		switch(message_sending_mode){
+		case WARNING_MSG_MODE:
+			Build_Msg((char*) tx_buffer, my_car_latitude, my_car_longitude,
+					north_south, east_west, car_direction);
 
-		HAL_UART_Transmit_DMA(&huart1, (uint8_t*) tx_buffer, 34);
-		__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
-
+			HAL_UART_Transmit_DMA(&huart1, (uint8_t*) tx_buffer, 34);
+			__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+			break;
+		case ARREST_MSG_MODE:
+			HAL_UART_Transmit_DMA(&huart1, (uint8_t*) arrest_message_buffer, 11);
+			__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+			message_sending_mode = WARNING_MSG_MODE;
+			break;
+		}
 		vTaskSuspend(NULL);
 		xSemaphoreTake(send_message_semaphore, portMAX_DELAY);
 	}
@@ -72,24 +72,24 @@ void Task_sendMessage(void *parameters) {
 
 void Task_handleReceivedMessage(void *parameters) {
 	//Receive the message
-	unsigned int i, j;
-	char message_start = 0;
-	char received_plate[7] = { 0 };
+	unsigned int i = 0, j = 0;
+	int8_t message_start = 0;
+	int8_t received_plate[7] = { 0 };
 	double message_latitude, message_longitude, message_direction;
 	double distance_calculation, bearing_difference;
 	xSemaphoreTake(receive_message_semaphore, 0);
-	HAL_UART_Receive_IT(&huart1, &message_start, 1);
+	HAL_UART_Receive_IT(&huart1, (uint8_t*)&message_start, 1);
 	while (1) {
 		xSemaphoreTake(receive_message_semaphore, portMAX_DELAY);
 		switch (message_start) {
 		case '#':
-			HAL_UART_Receive_DMA(&huart1, rx_buffer, 33);
+			HAL_UART_Receive_DMA(&huart1, (uint8_t*)rx_buffer, 33);
 			__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
 			xSemaphoreTake(receive_message_semaphore, portMAX_DELAY);
 			//rx_buffer contains message
 			//Extract up to N for latitude, up to E for longitude
 			i = 0, j = 0;
-			while (i < 30 && rx_buffer[i] != 'N' && rx_buffer[i] != 'S'
+			while (i < 34 && rx_buffer[i] != 'N' && rx_buffer[i] != 'S'
 					&& j < 11) {
 				second_car_latitude[j] = rx_buffer[i];
 				i++;
@@ -99,7 +99,7 @@ void Task_handleReceivedMessage(void *parameters) {
 			i++;         //no need for NS
 			j = 0;
 
-			while (i < 30 && rx_buffer[i] != 'E' && rx_buffer[i] != 'W'
+			while (i < 34 && rx_buffer[i] != 'E' && rx_buffer[i] != 'W'
 					&& j < 11) {
 				second_car_longitude[j] = rx_buffer[i];
 				i++;
@@ -109,7 +109,7 @@ void Task_handleReceivedMessage(void *parameters) {
 			i++;          //no need for EW
 			j = 0;
 
-			while (i < 30 && rx_buffer[i] != '#' && j < 8) {
+			while (i < 34 && rx_buffer[i] != '#' && j < 8) {
 				second_car_direction[j] = rx_buffer[i];
 				i++;
 				j++;
@@ -142,7 +142,7 @@ void Task_handleReceivedMessage(void *parameters) {
 			CLCD_voidSendString("In Front");
 			break;
 		case '!':
-			HAL_UART_Receive_DMA(&huart1, rx_buffer, 10); //!CAR123!\r\n\0
+			HAL_UART_Receive_DMA(&huart1, (uint8_t*)rx_buffer, 10); //!CAR123!\r\n\0
 			__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
 			xSemaphoreTake(receive_message_semaphore, portMAX_DELAY);
 			i = 0;
@@ -151,7 +151,7 @@ void Task_handleReceivedMessage(void *parameters) {
 				i++;
 			}
 			received_plate[i] = '\0';
-			if (strcmp(received_plate, CAR_PLATE) == 0) {
+			if (strcmp((const char *)received_plate, (const char *)CAR_PLATE) == 0) {
 				/* Decrease The Speed Gradually */
 				if ((TIM3->CCR1) >= 10) {
 					TIM3->CCR1 -= 1;
@@ -164,11 +164,9 @@ void Task_handleReceivedMessage(void *parameters) {
 				}
 			}
 			break;
-		default:
-			continue;
 		}
 
-		HAL_UART_Receive_IT(&huart1, &message_start, 1);
+		HAL_UART_Receive_IT(&huart1, (uint8_t*)&message_start, 1);
 #if 0
 		if (bearing_difference < 45 || bearing_difference > 135) {
 			//moving in same direction
@@ -391,7 +389,7 @@ void Task_controlCar(void *parameters) {
 	xLastWakeTime = xTaskGetTickCount();
 
 	while (1) {
-		car_control_character = 0;
+		//car_control_character = 0;
 
 		//HAL_UART_Receive_IT(&huart4, &Local_u8Received_data, 1);
 
@@ -436,26 +434,26 @@ void Task_controlCar(void *parameters) {
 }
 
 void Task_arrestMessageHandler(void *parameters) {
-	int8_t arrest_message_buffer[11] = 0;
 	xSemaphoreTake(bluetooth_message_semaphore, 0);
 
 	/* Start receiving from UART4 which is connected to the blue-tooth */
-	HAL_UART_Receive_IT(&huart4, &bluetooth_received_character, 1);
+	HAL_UART_Receive_IT(&huart4, (uint8_t *)&bluetooth_received_character, 1);
 
 	while (1) {
 		xSemaphoreTake(bluetooth_message_semaphore, portMAX_DELAY);
 		arrest_message_buffer[0] = bluetooth_received_character;
-		HAL_UART_Receive_DMA(&huart4, *(arrest_message_buffer + 1), 7);
-		__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+		arrest_message_buffer[7] = 0;
+		HAL_UART_Receive_DMA(&huart4, (uint8_t *)(arrest_message_buffer + 1), 7);
+		__HAL_DMA_DISABLE_IT(&hdma_uart4_rx, DMA_IT_HT);
 		xSemaphoreTake(bluetooth_message_semaphore, (1000 / portTICK_RATE_MS));
+		bluetooth_mode = BLTH_CAR_CTL_MODE;
 		if(arrest_message_buffer[7] == '!'){
 			arrest_message_buffer[8] = '\r';
 			arrest_message_buffer[9] = '\n';
 			arrest_message_buffer[10] = '\0';
-			HAL_UART_Transmit_DMA(&huart4, *(arrest_message_buffer + 1), 7);
-			__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+			message_sending_mode = ARREST_MSG_MODE;
 		}
-		bluetooth_mode = BLTH_CAR_CTL_MODE;
-		HAL_UART_Receive_IT(&huart4, &bluetooth_received_character, 1);
+		HAL_UART_Receive_IT(&huart4, (uint8_t *)&bluetooth_received_character, 1);
+		vTaskResume(send_message_task_handle);
 	}
 }

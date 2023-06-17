@@ -13,6 +13,7 @@ extern int8_t tx_buffer[34];
 extern int8_t bluetooth_received_character;
 extern int8_t car_control_character;
 extern int8_t bluetooth_mode;
+extern xSemaphoreHandle bluetooth_message_semaphore;
 
 extern uint8_t icFlag;
 extern uint32_t edge1Time;
@@ -36,14 +37,18 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 		case BLTH_MESSAGE_MODE:
 			NVIC_ClearPendingIRQ(USART1_IRQn);
 
-			xSemaphoreGiveFromISR(receive_message_semaphore,
+			xSemaphoreGiveFromISR(bluetooth_message_semaphore,
 					&xHigherPriorityTaskWoken);
 
-			portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
+			portEND_SWITCHING_ISR(xHigherPriorityTaskWoken)
+			;
 			break;
 		case BLTH_CAR_CTL_MODE:
-			car_control_character = bluetooth_received_character;
-			HAL_UART_Receive_IT(&huart4, &bluetooth_received_character, 1);
+			if (bluetooth_received_character != '\r' && bluetooth_received_character != '\n' ) {
+				car_control_character = bluetooth_received_character;
+			}
+			HAL_UART_Receive_IT(&huart4,
+					(uint8_t*) &bluetooth_received_character, 1);
 			break;
 		}
 	}

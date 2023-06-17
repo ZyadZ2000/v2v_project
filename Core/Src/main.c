@@ -154,6 +154,7 @@ void Task_initialization(void *parameters) {
 
 	vTaskDelay(3000 / portTICK_RATE_MS);
 
+	// Clearing the buffer
 	while ((USART1->SR & USART_SR_RXNE) != 0)
 	{
 	    uint8_t dummy = USART1->DR; // Read and discard received data
@@ -163,19 +164,6 @@ void Task_initialization(void *parameters) {
 	HAL_UART_Transmit(&huart1, (uint8_t*) "I", 1, 15000);
 
 	HAL_UART_Receive(&huart1, (uint8_t*) &wifi_ready_signal, 1,15000);
-
-//	CLCD_voidDisplayClear();
-//	CLCD_voidGoToXY(0, 0);
-//	CLCD_voidSendString("Waiting for");
-//	CLCD_voidGoToXY(1, 2);
-//	CLCD_voidSendString("WIFI");
-//
-//	vTaskDelay(1000 / portTICK_RATE_MS);
-//
-//	while (wifi_ready_signal == 0 && wifi_timeout_count < 8) {
-//		wifi_timeout_count++;
-//		vTaskDelay(3000 / portTICK_RATE_MS);
-//	}
 
 	if (wifi_ready_signal == 0) {
 		CLCD_voidDisplayClear();

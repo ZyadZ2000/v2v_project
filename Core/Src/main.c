@@ -199,7 +199,7 @@ void Task_initialization(void *parameters) {
 	xTaskCreate(&Task_handleReceivedMessage, "Message_Handling", 240, NULL, 4,
 	NULL);
 
-	xTaskCreate(&Task_speedCalculation, "Speed_Calculation", 240, NULL, 4,
+	xTaskCreate(&Task_speedCalculation, "Speed_Calculation", 240, NULL, 5,
 	NULL);
 
 	xTaskCreate(&Task_sendMessage, "Message_Sending", 240, NULL, 6,

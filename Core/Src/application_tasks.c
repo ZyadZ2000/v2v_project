@@ -142,8 +142,8 @@ void Task_handleReceivedMessage(void *parameters) {
 			CLCD_voidSendString("In Front");
 			break;
 		case '!':
-			HAL_UART_Receive_DMA(&huart1, (uint8_t*)rx_buffer, 10); //!CAR123!\r\n\0
 			__HAL_DMA_DISABLE_IT(&hdma_usart1_rx, DMA_IT_HT);
+			HAL_UART_Receive_DMA(&huart1, (uint8_t*)rx_buffer, 10); //!CAR123!\r\n\0
 			xSemaphoreTake(receive_message_semaphore, portMAX_DELAY);
 			i = 0;
 			while (rx_buffer[i] != '!' && i < 6) {
@@ -240,6 +240,7 @@ void Task_speedCalculation(void *parameters) {
 			//taskENTER_CRITICAL();
 			HAL_NVIC_DisableIRQ(EXTI0_IRQn);
 			vTaskResume(send_message_task_handle);
+			vTaskDelay(2500 / portTICK_RATE_MS);
 			HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 //			CLCD_voidDisplayClear();
 //			CLCD_voidGoToXY(0, 0);
@@ -443,8 +444,8 @@ void Task_arrestMessageHandler(void *parameters) {
 		xSemaphoreTake(bluetooth_message_semaphore, portMAX_DELAY);
 		arrest_message_buffer[0] = bluetooth_received_character;
 		arrest_message_buffer[7] = 0;
-		HAL_UART_Receive_DMA(&huart4, (uint8_t *)(arrest_message_buffer + 1), 7);
 		__HAL_DMA_DISABLE_IT(&hdma_uart4_rx, DMA_IT_HT);
+		HAL_UART_Receive_DMA(&huart4, (uint8_t *)(arrest_message_buffer + 1), 7);
 		xSemaphoreTake(bluetooth_message_semaphore, (1000 / portTICK_RATE_MS));
 		bluetooth_mode = BLTH_CAR_CTL_MODE;
 		if(arrest_message_buffer[7] == '!'){

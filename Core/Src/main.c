@@ -86,6 +86,7 @@ xSemaphoreHandle receive_message_semaphore;
 xSemaphoreHandle bluetooth_message_semaphore;
 
 TaskHandle_t send_message_task_handle;
+TaskHandle_t car_control_task_handle;
 
 /* Speed Sensor Variables*/
 volatile uint16_t slit_count = 0;
@@ -155,15 +156,14 @@ void Task_initialization(void *parameters) {
 	vTaskDelay(3000 / portTICK_RATE_MS);
 
 	// Clearing the buffer
-	while ((USART1->SR & USART_SR_RXNE) != 0)
-	{
-	    uint8_t dummy = USART1->DR; // Read and discard received data
-	    (void)dummy; // Avoid compiler warnings
+	while ((USART1->SR & USART_SR_RXNE) != 0) {
+		uint8_t dummy = USART1->DR; // Read and discard received data
+		(void) dummy; // Avoid compiler warnings
 	}
 
 	HAL_UART_Transmit(&huart1, (uint8_t*) "I", 1, 15000);
 
-	HAL_UART_Receive(&huart1, (uint8_t*) &wifi_ready_signal, 1,15000);
+	HAL_UART_Receive(&huart1, (uint8_t*) &wifi_ready_signal, 1, 15000);
 
 	if (wifi_ready_signal == 0) {
 		CLCD_voidDisplayClear();
@@ -209,7 +209,7 @@ void Task_initialization(void *parameters) {
 	NULL);
 
 	xTaskCreate(&Task_controlCar, "Car_Control", 240, NULL, 7,
-	NULL);
+			&car_control_task_handle);
 
 	// HAL_UART_Transmit_DMA(&huart1, (uint8_t*) "I", 1);
 
